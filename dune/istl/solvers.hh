@@ -23,6 +23,19 @@
 #include <dune/common/ftraits.hh>
 #include <dune/common/typetraits.hh>
 
+#define assert_normal(x) assert(std::isfinite(x))
+
+const char* show_classification(double x) {
+    switch(std::fpclassify(x)) {
+        case FP_INFINITE:  return "Inf";
+        case FP_NAN:       return "NaN";
+        case FP_NORMAL:    return "normal";
+        case FP_SUBNORMAL: return "subnormal";
+        case FP_ZERO:      return "zero";
+        default:           return "unknown";
+    }
+}
+
 namespace Dune {
   /** @defgroup ISTL_Solvers Iterative Solvers
       @ingroup ISTL
@@ -415,6 +428,8 @@ namespace Dune {
     {
       res.clear();                  // clear solver statistics
       Timer watch;                // start a timer
+      X xh(x);
+      X bh(b);
       _prec.pre(x,b);             // prepare preconditioner
       _op.applyscaleadd(-1,x,b);  // overwrite b with defect
 
@@ -422,13 +437,24 @@ namespace Dune {
       X q(x);              // a temporary vector
 
       real_type def0 = _sp.norm(b); // compute norm
+      asm volatile("": : :"memory");
+      if (!std::isfinite(def0))
+        {
+          std::cout << "x  = " << PDELab::istl::raw(x) << std::endl
+                    << "xh = " << PDELab::istl::raw(xh) << std::endl
+                    << "b  = " << PDELab::istl::raw(b) << std::endl
+                    << "bh = " << PDELab::istl::raw(bh) << std::endl
+                    << "def0 = " << show_classification(def0) << std::endl;
+        }
+
+      assert_normal(def0);
       if (def0<1E-30)    // convergence check
       {
         res.converged  = true;
         res.iterations = 0;               // fill statistics
         res.reduction = 0;
         res.conv_rate  = 0;
-        res.elapsed=0;
+        res.elapsed=0 ;
         if (_verbose>0)                 // final print
           std::cout << "=== rate=" << res.conv_rate
                     << ", T=" << res.elapsed << ", TIT=" << res.elapsed
@@ -453,6 +479,7 @@ namespace Dune {
       p = 0;                          // clear correction
       _prec.apply(p,b);               // apply preconditioner
       rholast = _sp.dot(p,b);         // orthogonalization
+      assert_normal(rholast);
 
       // the loop
       int i=1;
@@ -461,12 +488,22 @@ namespace Dune {
         // minimize in given search direction p
         _op.apply(p,q);             // q=Ap
         alpha = _sp.dot(p,q);       // scalar product
+        assert_normal(alpha);
         lambda = rholast/alpha;     // minimization
+        if (!std::isfinite(lambda))
+          {
+            std::cout << "alpha=" << alpha << " lambda=" << lambda << " rholast=" << rholast << std::endl;
+            std::cout << "p=" << Dune::PDELab::istl::raw(p) << std::endl;
+            std::cout << "q=" << Dune::PDELab::istl::raw(q) << std::endl;
+          }
+        assert_normal(lambda);
         x.axpy(lambda,p);           // update solution
         b.axpy(-lambda,q);          // update defect
 
         // convergence test
         real_type defnew=_sp.norm(b); // comp defect norm
+        assert_normal(defnew);
+        assert_normal(def);
 
         if (_verbose>1)             // print
           this->printOutput(std::cout,real_type(i),defnew,def);
@@ -482,7 +519,9 @@ namespace Dune {
         q = 0;                      // clear correction
         _prec.apply(q,b);           // apply preconditioner
         rho = _sp.dot(q,b);         // orthogonalization
+        assert_normal(rho);
         beta = rho/rholast;         // scaling factor
+        assert_normal(beta);
         p *= beta;                  // scale old search direction
         p += q;                     // orthogonalization with correction
         rholast = rho;              // remember rho for recurrence

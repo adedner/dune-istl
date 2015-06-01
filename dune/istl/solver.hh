@@ -133,6 +133,10 @@ namespace Dune
                      const DataType& norm_old) const
     {
       const DataType rate = norm/norm_old;
+      if (!(std::isfinite(norm) && std::isfinite(norm_old) && std::isfinite(rate)))
+        {
+          std::cout << "Problem! norm=" << norm << " norm_old=" << norm_old << " rate=" << rate << std::endl;
+        }
       s << std::setw(iterationSpacing)  << iter << " ";
       s << std::setw(normSpacing) << norm << " ";
       s << std::setw(normSpacing) << rate << std::endl;
