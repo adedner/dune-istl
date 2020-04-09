@@ -66,7 +66,7 @@ int main()
   // How verbose the solvers should be.  Use 2 (maximum verbosity) by default,
   // this will include all information in the logs, and for the casual user of
   // the unit tests ctest will hide the output anyway.
-  int verbose = 2;
+  int verbosity = 2;
 
   { // CGSolver
     std::cout << "Checking CGSolver with an unsolvable system...\n"
@@ -82,7 +82,7 @@ int main()
 
     Dune::MatrixAdapter<Matrix, Vector, Vector> op(matrix);
     Dune::Richardson<Vector, Vector> richardson;
-    Dune::CGSolver<Vector> solver(op, richardson, 1e-10, 5000, verbose);
+    Dune::CGSolver<Vector> solver(op, richardson, 1e-10, 5000, verbosity);
 
     checkSolverAbort(status, "CGSolver", solver, x, b);
   }
@@ -101,7 +101,7 @@ int main()
 
     Dune::MatrixAdapter<Matrix, Vector, Vector> op(matrix);
     Dune::Richardson<Vector, Vector> richardson;
-    Dune::BiCGSTABSolver<Vector> solver(op, richardson, 1e-10, 5000, verbose);
+    Dune::BiCGSTABSolver<Vector> solver(op, richardson, 1e-10, 5000, verbosity);
 
     checkSolverAbort(status, "BiCGSTABSolver", solver, x, b);
   }
