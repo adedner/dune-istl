@@ -40,7 +40,7 @@ void runSuperLU(std::size_t N)
 
   Dune::SuperLU<Matrix> solver1;
 
-  solver.setVerbosity(true);
+  solver.setVerbosity(1);
   solver.apply(x,b, res);
 
   std::set<std::size_t> mrs;

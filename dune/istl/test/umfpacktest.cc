@@ -46,7 +46,7 @@ void runUMFPack(std::size_t N)
     mrs.insert(s);
 
   solver1.setSubMatrix(mat,mrs);
-  solver1.setVerbosity(true);
+  solver1.setVerbosity(1);
 
   solver1.apply(x1,b1, res);
   solver1.apply(reinterpret_cast<typename Matrix::field_type*>(&x1[0]),
