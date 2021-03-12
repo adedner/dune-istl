@@ -41,6 +41,7 @@ install(FILES
    scalarproducts.hh
    scaledidmatrix.hh
    schwarz.hh
+   sizeutilities.hh
    solvercategory.hh
    solver.hh
    solverfactory.hh

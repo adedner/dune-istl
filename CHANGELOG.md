@@ -1,5 +1,11 @@
 # Master (will become release 2.8)
 
+- Add hybrid range and size utilities for matrices and vectors. Provide `Hybrid::numRows()`,
+  `Hybrid::numCols()`, `Hybrid::numEntries()` functions for extraction of the size of single or
+  multi-type matrices and vectors. Additionally, provide index-ranges `Hybrid::rows()`,
+  `Hybrid::cols()` and `Hybrid::entries()` for use in combination with `Hybrid::forEach()` for
+  iterating over matrices and vectors.
+
 - Added public access of the `cholmod_common` object in class `Cholmod`.
 
 - Python bindings have been moved from the `dune-python` module which is now
