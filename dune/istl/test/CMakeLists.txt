@@ -38,6 +38,8 @@ dune_add_test(SOURCES bcrsbuild.cc)
 dune_add_test(SOURCES bcrsimplicitbuild.cc
               COMPILE_DEFINITIONS DUNE_ISTL_WITH_CHECKING=1)
 
+dune_add_test(SOURCES matrixvectorconcepttest.cc)
+
 dune_add_test(SOURCES matrixiteratortest.cc)
 
 dune_add_test(SOURCES mmtest.cc)
