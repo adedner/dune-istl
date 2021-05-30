@@ -886,9 +886,8 @@ namespace Dune
                               std::istream& istr,
                               size_t lane)
   {
-    typedef typename Dune::BlockVector<T,A>::field_type field_type;
     for (int i=0; size>0; ++i, --size)
-        istr>>Simd::lane(lane,vector[i]);
+      istr>>Simd::lane(lane,vector[i]);
   }
 
   template<typename T, typename A, int entries>
@@ -897,7 +896,6 @@ namespace Dune
                               std::istream& istr,
                               size_t lane)
   {
-    typedef typename Dune::BlockVector<Dune::FieldVector<T,entries>,A>::field_type field_type;
     for(int i=0; size>0; ++i, --size) {
       Simd::Scalar<T> val;
       istr>>val;
