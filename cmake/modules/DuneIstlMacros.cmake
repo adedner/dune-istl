@@ -16,3 +16,6 @@ include(AddSuiteSparseFlags)
 # enable / disable backwards compatibility w.r.t. category
 set(DUNE_ISTL_SUPPORT_OLD_CATEGORY_INTERFACE 1
   CACHE BOOL "Enable/Disable the backwards compatibility of the category enum/method in dune-istl solvers, preconditioner, etc. '1'")
+
+set("DUNE_BLOCKKRYLOV_BLAS_PRIORITY" 5 CACHE
+  STRING "Set the priority of the BLAS overloads in block Krylov methods")

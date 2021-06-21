@@ -1,7 +1,4 @@
 
-set("DUNE_BLOCKKRYLOV_BLAS_PRIORITY" 5 CACHE
-  STRING "Set the priority of the BLAS overloads in block Krylov methods")
-
 add_subdirectory("test")
 
 install(FILES

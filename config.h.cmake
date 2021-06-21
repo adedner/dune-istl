@@ -54,7 +54,7 @@
 #cmakedefine DUNE_ISTL_SUPPORT_OLD_CATEGORY_INTERFACE @DUNE_ISTL_SUPPORT_OLD_CATEGORY_INTERFACE@
 
 /* Set the priority of the BLAS overloads in block Krylov methods */
-#cmakedefine DUNE_BLOCKKRYLOV_BLAS_PRIORITY ${DUNE_BLOCKKRYLOV_BLAS_PRIORITY}
+#cmakedefine DUNE_BLOCKKRYLOV_BLAS_PRIORITY @DUNE_BLOCKKRYLOV_BLAS_PRIORITY@
 
 /* end dune-istl
    Everything below here will be overwritten
