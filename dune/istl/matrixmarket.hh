@@ -22,7 +22,9 @@
 #include <dune/common/exceptions.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
+#include <dune/common/gmpfield.hh>
 #include <dune/common/hybridutilities.hh>
+#include <dune/common/quadmath.hh>
 #include <dune/common/stdstreams.hh>
 #include <dune/common/simd/simd.hh>
 
@@ -66,7 +68,7 @@ namespace Dune
      * the matrix market string representation
      * of the numeric type.
      *
-     * Member function mm_numeric_type::c_str()
+     * Member function mm_numeric_type::str()
      * returns the string representation of
      * the type.
      */
@@ -78,6 +80,11 @@ namespace Dune
          */
         is_numeric=false
       };
+
+      static std::string str()
+      {
+        return "unknown";
+      }
     };
 
     template<>
@@ -127,6 +134,42 @@ namespace Dune
         return "real";
       }
     };
+
+#if HAVE_GMP
+    template<unsigned int precision>
+    struct mm_numeric_type<Dune::GMPField<precision>>
+    {
+      enum {
+        /**
+         * @brief Whether T is a supported numeric type.
+         */
+        is_numeric=true
+      };
+
+      static std::string str()
+      {
+        return "real";
+      }
+    };
+#endif
+
+#if HAVE_QUADMATH
+    template<>
+    struct mm_numeric_type<Dune::Float128>
+    {
+      enum {
+        /**
+         * @brief Whether T is a supported numeric type.
+         */
+        is_numeric=true
+      };
+
+      static std::string str()
+      {
+        return "real";
+      }
+    };
+#endif
 
     template<>
     struct mm_numeric_type<std::complex<double> >
