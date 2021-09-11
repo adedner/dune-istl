@@ -1,8 +1,5 @@
-# set up project
-project(dune-istl C CXX)
-
-# general stuff
 cmake_minimum_required(VERSION 3.13)
+project("dune-istl" C CXX)
 
 # guess build tree of dune-common
 if(NOT (dune-common_DIR OR dune-common_ROOT OR
@@ -21,7 +18,7 @@ list(APPEND CMAKE_MODULE_PATH ${dune-common_MODULE_PATH}
 include(DuneMacros)
 
 # start a dune project with information from dune.module
-dune_project()
+dune_project(duneistl)
 
 add_subdirectory(cmake/modules)
 add_subdirectory(dune)
