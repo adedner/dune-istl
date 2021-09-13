@@ -51,8 +51,8 @@ namespace Dune {
     }
 
     /*
-      Register all creators from the registry in the Parameterizedobjectfactory An
-      object of V is passed in the creator ans should be used to determine the
+      Register all creators from the registry in the Parameterizedobjectfactory. An
+      object of V is passed in the creator and should be used to determine the
       template arguments.
     */
     template<class V, class Type, class Tag, class... Args>
