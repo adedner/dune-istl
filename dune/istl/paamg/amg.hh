@@ -1255,9 +1255,6 @@ namespace Dune
                    ") to be convertible to its real_type (" <<
                    className<real_type>() <<
                    ").");
-      using D = typename OpTraits::domain_type;
-      using R = typename OpTraits::range_type;
-      std::shared_ptr<Preconditioner<D,R>> amg;
       std::string smoother = config.get("smoother", "ssor");
       return makeAMG(op, smoother, config);
     }
