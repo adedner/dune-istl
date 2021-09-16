@@ -13,7 +13,7 @@ endif()
 find_package(dune-common REQUIRED)
 
 # start a dune project with information from dune.module
-dune_project(duneistl)
+dune_project(dune-istl INTERFACE)
 
 add_subdirectory(cmake/modules)
 add_subdirectory(dune)
