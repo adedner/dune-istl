@@ -3,14 +3,18 @@
 #    This modules content is executed whenever a module required or suggests dune-istl!
 #
 
-find_package(METIS)
-find_package(ParMETIS)
+dune_find_package(METIS TARGET METIS::METIS)
+dune_find_package(ParMETIS TARGET ParMETIS::ParMETIS)
 include(AddParMETISFlags)
-find_package(SuperLU 5.0)
+
+dune_find_package(SuperLU 5.0 TARGET SuperLU::SuperLU)
 include(AddSuperLUFlags)
+
 find_package(ARPACKPP)
 include(AddARPACKPPFlags)
-find_package(SuiteSparse OPTIONAL_COMPONENTS CHOLMOD LDL SPQR UMFPACK)
+
+dune_find_package(SuiteSparse OPTIONAL_COMPONENTS CHOLMOD LDL SPQR UMFPACK
+  TARGET SuiteSparse::SuiteSparse)
 include(AddSuiteSparseFlags)
 
 # enable / disable backwards compatibility w.r.t. category

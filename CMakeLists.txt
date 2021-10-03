@@ -4,7 +4,7 @@ project("dune-istl" C CXX)
 # guess build tree of dune-common
 if(NOT (dune-common_DIR OR dune-common_ROOT OR
         "${CMAKE_PREFIX_PATH}" MATCHES ".*dune-common.*"))
-    string(REPLACE  ${CMAKE_PROJECT_NAME} dune-common dune-common_DIR
+    string(REPLACE  ${PROJECT_NAME} dune-common dune-common_DIR
       ${PROJECT_BINARY_DIR})
 
 endif()
@@ -14,6 +14,8 @@ find_package(dune-common REQUIRED)
 
 # start a dune project with information from dune.module
 dune_project(dune-istl INTERFACE)
+
+add_dune_parmetis_flags(dune-istl INTERFACE)
 
 add_subdirectory(cmake/modules)
 add_subdirectory(dune)

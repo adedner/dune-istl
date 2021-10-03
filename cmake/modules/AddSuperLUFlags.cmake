@@ -11,7 +11,7 @@
 #
 
 # set HAVE_SUPERLU for config.h
-set(HAVE_SUPERLU ${SuperLU_FOUND})
+set(HAVE_SUPERLU ${SuperLU_FOUND} CACHE INTERNAL "")
 
 # register all SuperLU related flags
 if(SuperLU_FOUND)
