@@ -132,5 +132,4 @@ endif()
 
 # text for feature summary
 set_package_properties("ARPACKPP" PROPERTIES
-  DESCRIPTION "ARPACK++"
-  PURPOSE "C++ interface for ARPACK")
+  DESCRIPTION "C++ interface for ARPACK")

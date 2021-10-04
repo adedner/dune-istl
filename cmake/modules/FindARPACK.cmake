@@ -81,5 +81,4 @@ endif()
 
 # text for feature summary
 set_package_properties("ARPACK" PROPERTIES
-  DESCRIPTION "ARnoldi PACKage"
-  PURPOSE "Solve large scale eigenvalue problems")
+  DESCRIPTION "ARnoldi PACKage, Solve large scale eigenvalue problems")
