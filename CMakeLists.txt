@@ -1,13 +1,12 @@
+cmake_minimum_required(VERSION 3.13)
+
 # set up project
 project(dune-istl C CXX)
-
-# general stuff
-cmake_minimum_required(VERSION 3.13)
 
 # guess build tree of dune-common
 if(NOT (dune-common_DIR OR dune-common_ROOT OR
         "${CMAKE_PREFIX_PATH}" MATCHES ".*dune-common.*"))
-    string(REPLACE  ${CMAKE_PROJECT_NAME} dune-common dune-common_DIR
+    string(REPLACE  ${PROJECT_NAME} dune-common dune-common_DIR
       ${PROJECT_BINARY_DIR})
 
 endif()
@@ -28,7 +27,7 @@ add_subdirectory(dune)
 add_subdirectory(doc)
 
 # if Python bindings are enabled, include necessary sub directories.
-if( DUNE_ENABLE_PYTHONBINDINGS )
+if(DUNE_ENABLE_PYTHONBINDINGS)
   add_subdirectory(python)
 endif()
 
