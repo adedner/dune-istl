@@ -33,6 +33,8 @@
 - Remove deprecated `ImplicitModeOverflowExhausted`, use
   `ImplicitModeCompressionBufferExhausted` instead.
 
+- `ISTLError` now derives from `Dune::Exception`.
+
 # Release 2.8
 
 - Extended the MatrixMarket IO functions for reading and writing vectors with
