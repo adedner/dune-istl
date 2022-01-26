@@ -219,7 +219,7 @@ namespace Dune
       pybind11::options opts;
       opts.disable_function_signatures();
 
-      pybind11::class_< Solver > clsSolver( module, "InverseOperator" );
+      pybind11::class_< Solver, std::shared_ptr<Solver> > clsSolver( module, "InverseOperator" );
       registerInverseOperator( clsSolver );
 
       detail::registerEndomorphismSolvers( module, cls );

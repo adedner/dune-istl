@@ -85,3 +85,11 @@ def matrixAdapter(mat, u, v = None):
     gen = SimpleGenerator("LinearOperator", "Dune::Python")
     typeHash = "matrixadapter_"+hashIt(typeName)
     return gen.load(list(includes), typeName, typeHash, ctor, holder="std::shared_ptr").LinearOperator(mat)
+
+def getSolverFromFactory(op, config, includes = {}):
+    operatorType = op.cppTypeName
+    typeName = "Dune::SolverFactory< " + operatorType + " >"
+    includes = ["dune/python/istl/solverfactory.hh", *includes]
+    typeHash = "solverfactory_"+hashIt([typeName, *includes]) # add includes to the hash to enforce rebuild if custom includes are added
+    gen = SimpleGenerator("SolverFactory", "Dune::Python")
+    return gen.load(includes, typeName, typeHash).SolverFactory.get(op, config)
