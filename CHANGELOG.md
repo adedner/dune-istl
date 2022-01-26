@@ -1,5 +1,7 @@
 # Master (will become release 2.9)
 
+- Added python bindings for the solverfactory
+
 - Added a function to write nested matrices as SVG objects: `writeSVGMatrix(...)`
 
 - `MultiTypeBlockVector` uses now `std::common_type` of the entries for the `field_type`. The old `double`
