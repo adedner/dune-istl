@@ -32,7 +32,7 @@ PYBIND11_MODULE( _istl, module )
 
   // export linear operator, preconditioners, and solvers for blockvectors with block size 1
   pybind11::class_< Dune::LinearOperator< Vector, Vector > > clsLinearOperator( module, "LinearOperator" );
-  Dune::Python::registerLinearOperator( clsLinearOperator );
+  Dune::Python::registerLinearOperator( module, clsLinearOperator );
   Dune::Python::registerPreconditioners( module, clsLinearOperator );
   Dune::Python::registerSolvers( module, clsLinearOperator );
 
