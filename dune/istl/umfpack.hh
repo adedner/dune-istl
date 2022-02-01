@@ -605,16 +605,19 @@ namespace Dune {
   };
 
   struct UMFPackCreator {
-    template<class F,class=void> struct isValidBlock : std::false_type{};
-    template<class B> struct isValidBlock<B, std::enable_if_t<std::is_same<typename FieldTraits<B>::real_type,double>::value>> : std::true_type {};
+    template<class, class=void> struct isValidMatrix : std::false_type{};
+    template<class B, class A>
+    struct isValidMatrix<BCRSMatrix<B, A>,
+                         std::enable_if_t<std::is_same_v<typename FieldTraits<B>::real_type, double>>>
+      : std::true_type{};
 
     template<typename OpTraits, typename OP>
     std::shared_ptr<Dune::InverseOperator<typename OpTraits::domain_type,
                                           typename OpTraits::range_type>>
     operator() (OpTraits opTraits, const std::shared_ptr<OP>& op, const Dune::ParameterTree& config,
       std::enable_if_t<
-                isValidBlock<typename OpTraits::matrix_type::block_type>::value
-                && Simd::lanes<typename OpTraits::domain_type::field_type>() == 1,int> = 0) const
+                isValidMatrix<typename OpTraits::matrix_type>::value &&
+                std::is_same_v<typename FieldTraits<typename OpTraits::domain_type::field_type>::real_type, double>,int> = 0) const
     {
       using M = typename OpTraits::matrix_type;
       const M& mat = opTraits.getMatOrThrow(op);
@@ -628,8 +631,8 @@ namespace Dune {
                                           typename OpTraits::range_type>>
     operator() (OpTraits /*opTraits*/, const std::shared_ptr<OP>& /*op*/, const Dune::ParameterTree& /*config*/,
       std::enable_if_t<
-                !isValidBlock<typename OpTraits::matrix_type::block_type>::value
-                || Simd::lanes<typename OpTraits::domain_type::field_type>() != 1,int> = 0) const
+                !isValidMatrix<typename OpTraits::matrix_type>::value ||
+                !std::is_same_v<typename FieldTraits<typename OpTraits::domain_type::field_type>::real_type, double>,int> = 0) const
     {
       DUNE_THROW(UnsupportedType,
         "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
