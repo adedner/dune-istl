@@ -22,8 +22,7 @@
 #include "gsetc.hh"
 #include "ilu.hh"
 #include "operators.hh"
-#include "solvers.hh"
-#include "preconditioners.hh"
+#include "preconditioner.hh"
 #include "scalarproducts.hh"
 #include "owneroverlapcopy.hh"
 

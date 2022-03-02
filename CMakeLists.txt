@@ -23,6 +23,13 @@ include(DuneMacros)
 # start a dune project with information from dune.module
 dune_project()
 
+# compile the solverfactory for MatrixAdapter with BCRSMatrix<double>
+# This is used in the tests
+
+dune_precompile_solverfactory(OPERATORS
+  "Dune::MatrixAdapter<Dune::BCRSMatrix<double>, Dune::BlockVector<double>, Dune::BlockVector<double>>"
+  INCLUDES "dune/istl/bcrsmatrix.hh" "dune/istl/solvers.hh" "dune/istl/preconditioners.hh")
+
 add_subdirectory(cmake/modules)
 add_subdirectory(dune)
 add_subdirectory(doc)
