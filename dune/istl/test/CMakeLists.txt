@@ -163,4 +163,10 @@ dune_add_test(SOURCES blocklevel.cc COMPILE_ONLY)
 
 exclude_from_headercheck(complexdata.hh)
 
-dune_add_test(SOURCES solverfactorylibtest.cc)
+dune_precompile_solverfactory(NAME testsolverfactorylib
+  OPERATORS
+  "Dune::MatrixAdapter<Dune::BCRSMatrix<double>, Dune::BlockVector<double>, Dune::BlockVector<double>>"
+  INCLUDES "dune/istl/bcrsmatrix.hh" "dune/istl/solvers.hh" "dune/istl/preconditioners.hh")
+
+dune_add_test(SOURCES solverfactorylibtest.cc
+  LINK_LIBRARIES testsolverfactorylib)
