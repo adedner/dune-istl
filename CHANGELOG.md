@@ -26,6 +26,8 @@
 - You can now use `std::tuple_element` to get the types of `MultiTypeBlockVector` entries
   and `MultiTypeBlockMatrix` rows.
 
+- Rename `[bool] verbose` parameter to `[int] verbosity`.
+
 ## Deprecations and removals
 
 - The deprecated ILU functions `bilu_backsolve`, `bilu0_decomposition`, `bilu_backsolve`,
