@@ -158,7 +158,7 @@ namespace Dune
       /** @brief The type of the hierarchy of parallel information. */
       typedef typename Amg::ParallelInformationHierarchy ParallelInformationHierarchy;
       /** @brief The type of the scalar product. */
-      typedef typename Amg::ScalarProduct ScalarProduct;
+      typedef ScalarProduct<X> ScalarProduct;
 
       //! Category of the preconditioner (see SolverCategory::Category)
       virtual SolverCategory::Category category() const
@@ -220,7 +220,7 @@ namespace Dune
       double levelDefectReduction;
 
       /** @brief pointers to the allocated scalar products. */
-      std::vector<std::shared_ptr<typename Amg::ScalarProduct> > scalarproducts;
+      std::vector<std::shared_ptr<ScalarProduct> > scalarproducts;
 
       /** @brief pointers to the allocated krylov solvers. */
       std::vector<std::shared_ptr<KAmgTwoGrid<Amg> > > ksolvers;
