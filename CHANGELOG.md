@@ -1,5 +1,8 @@
 # Master (will become release 2.9)
 
+- Add cmake function `dune_precompile_solverfactory` to create a library that adds solvers and
+  preconditioners to the solverfactory when it is loaded.
+
 - Solvers are more robust if used with multiple right-hand sides and one lane starts with the exact solution.
 
 - Added a function to write nested matrices as SVG objects: `writeSVGMatrix(...)`
