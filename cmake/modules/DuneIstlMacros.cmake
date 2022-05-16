@@ -12,7 +12,7 @@ find_package(ARPACKPP)
 include(AddARPACKPPFlags)
 find_package(SuiteSparse OPTIONAL_COMPONENTS CHOLMOD LDL SPQR UMFPACK)
 include(AddSuiteSparseFlags)
-include(SolverFactory)
+include(DuneSolverFactory)
 
 # enable / disable backwards compatibility w.r.t. category
 set(DUNE_ISTL_SUPPORT_OLD_CATEGORY_INTERFACE 1
