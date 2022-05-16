@@ -203,7 +203,7 @@ namespace Dune {
 
        \copydoc Preconditioner::pre(X&,Y&)
      */
-    virtual void pre (X& x, [[maybe_unused]] Y& b)
+    virtual void pre (X& x, Y&)
     {
       communication.copyOwnerToAll(x,x);     // make dirichlet values consistent
     }
