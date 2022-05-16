@@ -6,6 +6,7 @@
 #
 #       Adds a library with a global variable. It is initialized with a call to
 #       initSolversFromFactory<OP> for every operator that is passed to this function
+#
 #    .. cmake_param:: REGISTER_GLOBALLY
 #       :bool:
 #
