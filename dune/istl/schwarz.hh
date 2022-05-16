@@ -227,7 +227,7 @@ namespace Dune {
 
        \copydoc Preconditioner::post(X&)
      */
-    virtual void post ([[maybe_unused]] X& x) {}
+    virtual void post (X&) {}
 
     //! Category of the preconditioner (see SolverCategory::Category)
     virtual SolverCategory::Category category() const
