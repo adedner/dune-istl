@@ -22,7 +22,8 @@
 #    .. cmake_param:: OPERATOR
 #       :multi:
 #
-#       C++ typenames of Operators for that the solverfactory should be compiled.
+#       List of C++ type of ISTL Operators (e.g. MatrixAdapter<...>) for which
+#       the solverfactory should be compiled.
 #
 #    .. cmake_param:: INCLUDES
 #       :multi:
