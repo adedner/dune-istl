@@ -65,7 +65,7 @@ int ${arg_NAME} = (")
   file(WRITE "${LIB_FILENAME}" ${LIB_FILE})
 
   ## compile library
-  dune_add_library(${arg_NAME} SOURCES "${LIB_FILENAME}")
+  dune_add_library(${arg_NAME} SOURCES "${LIB_FILENAME}" NO_MODULE_LIBRARY)
   add_dune_all_flags(${arg_NAME})
   get_target_property(target_type ${arg_NAME} TYPE)
   if (target_type STREQUAL STATIC_LIBRARY)
