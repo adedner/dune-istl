@@ -972,10 +972,12 @@ namespace Dune
         //=======================================================
         // ParMETIS_V3_PartKway
         //=======================================================
+#if HAVE_PARMETIS
         ParMETIS_V3_PartKway(vtxdist, xadj, adjncy,
                              vwgt, adjwgt, &wgtflag,
                              &numflag, &ncon, &nparts, tpwgts, &ubvec, options, &edgecut, part,
                              &comm);
+#endif
         if(verbose && oocomm.communicator().rank()==0)
           std::cout<<"ParMETIS took "<<time.elapsed()<<std::endl;
         time.reset();
@@ -1352,10 +1354,11 @@ namespace Dune
       //=======================================================
       // ParMETIS_V3_PartKway
       //=======================================================
+#if HAVE_PARMETIS
       ParMETIS_V3_PartKway(indexMap.vtxDist(), xadj, adjncy,
                            NULL, ef.getWeights(), &wgtflag,
                            &numflag, &ncon, &nparts, tpwgts, ubvec, options, &edgecut, part, &const_cast<MPI_Comm&>(comm));
-
+#endif
 
       delete[] xadj;
       delete[] adjncy;
