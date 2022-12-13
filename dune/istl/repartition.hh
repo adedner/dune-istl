@@ -977,6 +977,10 @@ namespace Dune
                              vwgt, adjwgt, &wgtflag,
                              &numflag, &ncon, &nparts, tpwgts, &ubvec, options, &edgecut, part,
                              &comm);
+#else
+        DUNE_THROW(Dune::NotImplemented,
+          "The function commGraphRepartition() requires ParMETIS. "
+          "Activate the package by add_dune_parmetis_flags(target) in your CMakeLists.txt file.");
 #endif
         if(verbose && oocomm.communicator().rank()==0)
           std::cout<<"ParMETIS took "<<time.elapsed()<<std::endl;
@@ -1358,6 +1362,10 @@ namespace Dune
       ParMETIS_V3_PartKway(indexMap.vtxDist(), xadj, adjncy,
                            NULL, ef.getWeights(), &wgtflag,
                            &numflag, &ncon, &nparts, tpwgts, ubvec, options, &edgecut, part, &const_cast<MPI_Comm&>(comm));
+#else
+      DUNE_THROW(Dune::NotImplemented,
+        "The function graphRepartition() requires ParMETIS. "
+        "Activate the package by add_dune_parmetis_flags(target) in your CMakeLists.txt file.");
 #endif
 
       delete[] xadj;
