@@ -16,6 +16,7 @@
 #include <dune/istl/superlu.hh>
 #include <dune/istl/umfpack.hh>
 #include <dune/istl/solvertype.hh>
+#include <dune/istl/solverregistry.hh>
 #include <dune/common/typetraits.hh>
 #include <dune/common/exceptions.hh>
 #include <dune/common/scalarvectorview.hh>
@@ -1167,8 +1168,8 @@ namespace Dune
   } // end namespace Amg
 
   struct AMGCreator{
-    template<class> struct isValidBlockType : std::false_type{};
-    template<class T, int n, int m> struct isValidBlockType<FieldMatrix<T,n,m>> : std::true_type{};
+    template<class> struct isValidMatrix : std::false_type{};
+    template<class T, int n, int m, class A> struct isValidMatrix<BCRSMatrix<FieldMatrix<T,n,m>, A>> : std::true_type{};
 
     template<class OP>
     std::shared_ptr<Dune::Preconditioner<typename OP::element_type::domain_type, typename OP::element_type::range_type> >
@@ -1242,13 +1243,13 @@ namespace Dune
         DUNE_THROW(Dune::Exception, "Unknown smoother for AMG");
     }
 
-    template<typename TL, typename OP>
-    std::shared_ptr<Dune::Preconditioner<typename Dune::TypeListElement<1, TL>::type,
-                                         typename Dune::TypeListElement<2, TL>::type>>
-    operator() (TL tl, const std::shared_ptr<OP>& op, const Dune::ParameterTree& config,
-                std::enable_if_t<isValidBlockType<typename OP::matrix_type::block_type>::value,int> = 0) const
+    template<typename OpTraits, typename OP>
+    std::shared_ptr<Dune::Preconditioner<typename OpTraits::domain_type,
+                                         typename OpTraits::range_type>>
+    operator() (OpTraits opTraits, const std::shared_ptr<OP>& op, const Dune::ParameterTree& config,
+                std::enable_if_t<isValidMatrix<typename OpTraits::matrix_type>::value,int> = 0) const
     {
-      using field_type = typename OP::matrix_type::field_type;
+      using field_type = typename OpTraits::matrix_type::field_type;
       using real_type = typename FieldTraits<field_type>::real_type;
       if (!std::is_convertible<field_type, real_type>())
         DUNE_THROW(UnsupportedType, "AMG needs field_type(" <<
@@ -1256,18 +1257,15 @@ namespace Dune
                    ") to be convertible to its real_type (" <<
                    className<real_type>() <<
                    ").");
-      using D = typename Dune::TypeListElement<1, decltype(tl)>::type;
-      using R = typename Dune::TypeListElement<2, decltype(tl)>::type;
-      std::shared_ptr<Preconditioner<D,R>> amg;
       std::string smoother = config.get("smoother", "ssor");
       return makeAMG(op, smoother, config);
     }
 
-    template<typename TL, typename OP>
-    std::shared_ptr<Dune::Preconditioner<typename Dune::TypeListElement<1, TL>::type,
-                                         typename Dune::TypeListElement<2, TL>::type>>
-    operator() (TL /*tl*/, const std::shared_ptr<OP>& /*mat*/, const Dune::ParameterTree& /*config*/,
-                std::enable_if_t<!isValidBlockType<typename OP::matrix_type::block_type>::value,int> = 0) const
+    template<typename OpTraits, typename OP>
+    std::shared_ptr<Dune::Preconditioner<typename OpTraits::domain_type,
+                                         typename OpTraits::range_type>>
+    operator() (OpTraits opTraits, const std::shared_ptr<OP>& op, const Dune::ParameterTree& config,
+                std::enable_if_t<!isValidMatrix<typename OpTraits::matrix_type>::value,int> = 0) const
     {
       DUNE_THROW(UnsupportedType, "AMG needs a FieldMatrix as Matrix block_type");
     }

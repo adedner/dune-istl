@@ -162,6 +162,10 @@ dune_add_test(SOURCES matrixmarkettest.cc)
 
 dune_add_test(SOURCES iluildltest.cc)
 
+dune_add_test(SOURCES matrixfreesolverfactorytest.cc)
+
 dune_add_test(SOURCES blocklevel.cc COMPILE_ONLY)
+
+dune_add_test(SOURCES registermacrosbackwardcompatibilitytest.cc)
 
 exclude_from_headercheck(complexdata.hh)
