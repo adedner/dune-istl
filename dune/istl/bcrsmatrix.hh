@@ -556,7 +556,7 @@ namespace Dune {
       if (r==0) DUNE_THROW(BCRSMatrixError,"row not initialized yet");
       if (i>=n) DUNE_THROW(BCRSMatrixError,"index out of range");
 #endif
-      return r[i];
+      return build_data->rows_[i];
     }
 
     //! same for read only access
@@ -568,7 +568,7 @@ namespace Dune {
       if (built!=ready) DUNE_THROW(BCRSMatrixError,"row not initialized yet");
       if (i>=n) DUNE_THROW(BCRSMatrixError,"index out of range");
 #endif
-      return r[i];
+      return build_data->rows_[i];
     }
 
 
@@ -686,27 +686,27 @@ namespace Dune {
     //! Get iterator to first row
     Iterator begin ()
     {
-      return Iterator(r,0);
+      return Iterator(build_data->rows_,0);
     }
 
     //! Get iterator to one beyond last row
     Iterator end ()
     {
-      return Iterator(r,n);
+      return Iterator(build_data->rows_,n);
     }
 
     //! @returns an iterator that is positioned before
     //! the end iterator of the rows, i.e. at the last row.
     Iterator beforeEnd ()
     {
-      return Iterator(r,n-1);
+      return Iterator(build_data->rows_,n-1);
     }
 
     //! @returns an iterator that is positioned before
     //! the first row of the matrix.
     Iterator beforeBegin ()
     {
-      return Iterator(r,-1);
+      return Iterator(build_data->rows_,-1);
     }
 
     //! rename the iterators for easier access
@@ -723,27 +723,27 @@ namespace Dune {
     //! Get const iterator to first row
     ConstIterator begin () const
     {
-      return ConstIterator(r,0);
+      return ConstIterator(build_data->rows_,0);
     }
 
     //! Get const iterator to one beyond last row
     ConstIterator end () const
     {
-      return ConstIterator(r,n);
+      return ConstIterator(build_data->rows_,n);
     }
 
     //! @returns an iterator that is positioned before
     //! the end iterator of the rows. i.e. at the last row.
     ConstIterator beforeEnd() const
     {
-      return ConstIterator(r,n-1);
+      return ConstIterator(build_data->rows_,n-1);
     }
 
     //! @returns an iterator that is positioned before
     //! the first row of the matrix.
     ConstIterator beforeBegin () const
     {
-      return ConstIterator(r,-1);
+      return ConstIterator(build_data->rows_,-1);
     }
 
     //! rename the const row iterator for easier access
@@ -759,13 +759,12 @@ namespace Dune {
 
     //! an empty matrix
     BCRSMatrix ()
-      : n(0), m(0), r(0), a(0), build_data{std::make_unique<BuildData>()}
+      : n(0), m(0), a(0), build_data{std::make_unique<BuildData>()}
     {}
 
     //! matrix with known number of nonzeroes
     BCRSMatrix (size_type _n, size_type _m, size_type _nnz, BuildMode bm)
-      : n(0), m(0),
-        r(0), a(0),
+      : n(0), m(0), a(0),
         build_data{std::make_unique<BuildData>(bm)}
     {
       allocate(_n, _m, _nnz,true,false);
@@ -773,8 +772,7 @@ namespace Dune {
 
     //! matrix with unknown number of nonzeroes
     BCRSMatrix (size_type _n, size_type _m, BuildMode bm)
-      : n(0), m(0),
-        r(0), a(0),
+      : n(0), m(0), a(0),
         build_data{std::make_unique<BuildData>(bm)}
     {
       allocate(_n, _m,0,true,false);
@@ -792,8 +790,7 @@ namespace Dune {
      *
      */
     BCRSMatrix (size_type _n, size_type _m, size_type _avg, double compressionBufferSize, BuildMode bm)
-      : n(0), m(0),
-        r(0), a(0),
+      : n(0), m(0), a(0),
         build_data{std::make_unique<BuildData>(bm, notAllocated, 0, 0, _avg, compressionBufferSize)}
     {
       if (bm != implicit)
@@ -813,8 +810,7 @@ namespace Dune {
      * Does a deep copy as expected.
      */
     BCRSMatrix (const BCRSMatrix& Mat)
-      : n(0), m(0),
-        r(0), a(0),
+      : n(0), m(0), a(0),
         build_data{new BuildData{Mat.buildMode(), notAllocated, 0, 0, Mat.build_data->avg, Mat.build_data->compressionBufferSize_, Mat.build_data->allocator_}}
     {
       if (!(Mat.buildStage() == notAllocated || Mat.buildStage() == built))
@@ -936,9 +932,9 @@ namespace Dune {
       // reallocate the rows if required
       if (n>0 && n!=Mat.n) {
         // free rows
-        for(row_type *riter=r+(n-1), *rend=r-1; riter!=rend; --riter)
+        for(row_type *riter=build_data->rows_+(n-1), *rend=build_data->rows_-1; riter!=rend; --riter)
           std::allocator_traits<row_allocator_type>::destroy(rowAllocator_, riter);
-        rowAllocator_.deallocate(r,n);
+        rowAllocator_.deallocate(build_data->rows_,n);
       }
 
       build_data->nnz_ = Mat.nonzeroes();
@@ -961,7 +957,7 @@ namespace Dune {
       if (!(build_data->ready == notAllocated || build_data->ready == built))
         DUNE_THROW(InvalidStateException,"Scalar assignment only works on fully built BCRSMatrix)");
 
-      for (size_type i=0; i<n; i++) r[i] = k;
+      for (size_type i=0; i<n; i++) build_data->rows_[i] = k;
       return *this;
     }
 
@@ -1016,7 +1012,7 @@ namespace Dune {
               DUNE_THROW(BCRSMatrixError,"allocated nnz too small");
 
             // set row i
-            Mat.r[i].set(s,nullptr,current_row.getindexptr());
+            Mat.build_data->rows_[i].set(s,nullptr,current_row.getindexptr());
             current_row.setindexptr(current_row.getindexptr()+s);
           }else{
             // memory is allocated individually per row
@@ -1028,14 +1024,14 @@ namespace Dune {
 
             size_allocator_type sizeAllocator_{Mat.build_data->allocator_};
             size_type* j = sizeAllocator_.allocate(s);
-            Mat.r[i].set(s,b,j);
+            Mat.build_data->rows_[i].set(s,b,j);
           }
         }else
           // setup empty row
-          Mat.r[i].set(0,nullptr,nullptr);
+          Mat.build_data->rows_[i].set(0,nullptr,nullptr);
 
         // initialize the j array for row i from pattern
-        std::copy(pattern.cbegin(), pattern.cend(), Mat.r[i].getindexptr());
+        std::copy(pattern.cbegin(), pattern.cend(), Mat.build_data->rows_[i].getindexptr());
 
         // now go to next row
         i++;
@@ -1138,7 +1134,7 @@ namespace Dune {
       if (buildStage() != building)
         DUNE_THROW(BCRSMatrixError,"matrix row sizes already built up");
 
-      r[i].setsize(s);
+      build_data->rows_[i].setsize(s);
     }
 
     //! get current number of indices in row i
@@ -1148,7 +1144,7 @@ namespace Dune {
       if (r==0) DUNE_THROW(BCRSMatrixError,"row not initialized yet");
       if (i>=n) DUNE_THROW(BCRSMatrixError,"index out of range");
 #endif
-      return r[i].getsize();
+      return build_data->rows_[i].getsize();
     }
 
     //! increment size of row i by s (1 by default)
@@ -1159,7 +1155,7 @@ namespace Dune {
       if (buildStage() != building)
         DUNE_THROW(BCRSMatrixError,"matrix row sizes already built up");
 
-      r[i].setsize(r[i].getsize()+s);
+      build_data->rows_[i].setsize(build_data->rows_[i].getsize()+s);
     }
 
     //! indicate that size of all rows is defined
@@ -1174,7 +1170,7 @@ namespace Dune {
       size_type total=0;
       for (size_type i=0; i<n; i++)
       {
-        total += r[i].getsize();
+        total += build_data->rows_[i].getsize();
       }
 
       const size_type nnz = build_data->nnz_;
@@ -1221,8 +1217,8 @@ namespace Dune {
         DUNE_THROW(BCRSMatrixError,"column index exceeds matrix size");
 
       // get row range
-      size_type* const first = r[row].getindexptr();
-      size_type* const last = first + r[row].getsize();
+      size_type* const first = build_data->rows_[row].getindexptr();
+      size_type* const last = first + build_data->rows_[row].getsize();
 
       // find correct insertion position for new column index
       size_type* pos = std::lower_bound(first,last,col);
@@ -1251,11 +1247,11 @@ namespace Dune {
     template<typename It>
     void setIndices(size_type row, It begin, It end)
     {
-      size_type row_size = r[row].size();
-      size_type* col_begin = r[row].getindexptr();
+      size_type row_size = build_data->rows_[row].size();
+      size_type* col_begin = build_data->rows_[row].getindexptr();
       size_type* col_end;
       // consistency check between allocated row size and number of passed column indices
-      if ((col_end = std::copy(begin,end,r[row].getindexptr())) != col_begin + row_size)
+      if ((col_end = std::copy(begin,end,build_data->rows_[row].getindexptr())) != col_begin + row_size)
         DUNE_THROW(BCRSMatrixError,"Given size of row " << row
                    << " (" << row_size
                    << ") does not match number of passed entries (" << (col_end - col_begin) << ")");
@@ -1284,7 +1280,7 @@ namespace Dune {
             dwarn << "WARNING: size of row "<< i.index()<<" is "<<j.offset()<<". But was specified as being "<< (*i).end().offset()
                   <<". This means you are wasting valuable space and creating additional cache misses!"<<std::endl;
             build_data->nnz_ -= ((*i).end().offset() - j.offset());
-            r[i.index()].setsize(j.offset());
+            build_data->rows_[i.index()].setsize(j.offset());
             break;
           }
         }
@@ -1329,8 +1325,8 @@ namespace Dune {
         DUNE_THROW(BCRSMatrixError,"column index exceeds matrix size");
 #endif
 
-      size_type* begin = r[row].getindexptr();
-      size_type* end = begin + r[row].getsize();
+      size_type* begin = build_data->rows_[row].getindexptr();
+      size_type* end = begin + build_data->rows_[row].getsize();
 
       size_type* pos = std::find(begin, end, col);
 
@@ -1338,14 +1334,14 @@ namespace Dune {
       if (pos != end)
         if (*pos == col)
         {
-          std::ptrdiff_t offset = pos - r[row].getindexptr();
-          B* aptr = r[row].getptr() + offset;
+          std::ptrdiff_t offset = pos - build_data->rows_[row].getindexptr();
+          B* aptr = build_data->rows_[row].getptr() + offset;
 
           return *aptr;
         }
 
       //determine whether overflow has to be taken into account or not
-      if (r[row].getsize() == build_data->avg)
+      if (build_data->rows_[row].getsize() == build_data->avg)
         return build_data->overflow[std::make_pair(row,col)];
       else
       {
@@ -1353,11 +1349,11 @@ namespace Dune {
         *end = col;
 
         //do simultaneous operations on data array a
-        std::ptrdiff_t offset = end - r[row].getindexptr();
-        B* apos = r[row].getptr() + offset;
+        std::ptrdiff_t offset = end - build_data->rows_[row].getindexptr();
+        B* apos = build_data->rows_[row].getptr() + offset;
 
         //increase rowsize
-        r[row].setsize(r[row].getsize()+1);
+        build_data->rows_[row].setsize(build_data->rows_[row].getsize()+1);
 
         //return reference to the newly created entry
         return *apos;
@@ -1406,9 +1402,9 @@ namespace Dune {
       for (size_type i=0; i<n; i++)
       {
         //get old pointers into a and j and size without overflow changes
-        size_type* begin = r[i].getindexptr();
-        //B* apos = r[i].getptr();
-        size_type size = r[i].getsize();
+        size_type* begin = build_data->rows_[i].getindexptr();
+        //B* apos = build_data->rows_[i].getptr();
+        size_type size = build_data->rows_[i].getsize();
 
         perm.resize(size);
 
@@ -1420,8 +1416,8 @@ namespace Dune {
         std::sort(perm.begin(),perm.end(),PointerCompare<size_type>());
 
         //change row window pointer to their new positions
-        r[i].setindexptr(jiit);
-        r[i].setptr(aiit);
+        build_data->rows_[i].setindexptr(jiit);
+        build_data->rows_[i].setptr(aiit);
 
         for (it = perm.begin(); it != perm.end(); ++it)
         {
@@ -1440,7 +1436,7 @@ namespace Dune {
             *aiit = oit->second;
             ++aiit;
             ++oit;
-            r[i].setsize(r[i].getsize()+1);
+            build_data->rows_[i].setsize(build_data->rows_[i].getsize()+1);
           }
 
           //check whether there is enough memory to write to
@@ -1474,12 +1470,12 @@ namespace Dune {
           *aiit = oit->second;
           ++aiit;
           ++oit;
-          r[i].setsize(r[i].getsize()+1);
+          build_data->rows_[i].setsize(build_data->rows_[i].getsize()+1);
         }
 
         // update maximum row size
-        if (r[i].getsize()>stats.maximum)
-          stats.maximum = r[i].getsize();
+        if (build_data->rows_[i].getsize()>stats.maximum)
+          stats.maximum = build_data->rows_[i].getsize();
       }
 
       // overflow area may be cleared
@@ -2037,7 +2033,7 @@ namespace Dune {
       if (i<0 || i>=n) DUNE_THROW(BCRSMatrixError,"row index out of range");
       if (j<0 || j>=m) DUNE_THROW(BCRSMatrixError,"column index out of range");
 #endif
-      return (r[i].size() && r[i].find(j) != r[i].end());
+      return (build_data->rows_[i].size() && build_data->rows_[i].find(j) != build_data->rows_[i].end());
     }
 
 
@@ -2049,13 +2045,13 @@ namespace Dune {
     // 8
     size_type m;       // number of columns
 
-    // the rows are dynamically allocated
-    row_type* r;     // [n] the individual rows having pointers into a,j arrays
 
     // dynamically allocated memory
     B*   a;      // [allocationSize] non-zero entries of the matrix in row-wise ordering
 
     size_type* colIndexView_;
+
+    // size_type* rowOffset_;
 
     //! variables needed to build the matrix.
     struct BuildData {
@@ -2079,6 +2075,11 @@ namespace Dune {
       // between different matrices with the same sparsity pattern
       std::shared_ptr<size_type> colIndex_;  // [allocationSize] column indices of entries
 
+      // std::shared_ptr<size_type> rowOffset_;  // [n] index offests to the row data
+
+      // the rows are dynamically allocated
+      row_type* rows_ = nullptr;     // [n] the individual rows having pointers into a,j arrays
+
       OverflowType overflow;
     };
 
@@ -2095,13 +2096,13 @@ namespace Dune {
 
         if (s>0) {
           // setup pointers and size
-          r[i].set(s,current_row.getptr(), current_row.getindexptr());
+          build_data->rows_[i].set(s,current_row.getptr(), current_row.getindexptr());
           // update pointer for next row
           current_row.setptr(current_row.getptr()+s);
           current_row.setindexptr(current_row.getindexptr()+s);
         } else{
           // empty row
-          r[i].set(0,nullptr,nullptr);
+          build_data->rows_[i].set(0,nullptr,nullptr);
         }
       }
     }
@@ -2120,11 +2121,11 @@ namespace Dune {
 
         if (s>0) {
           // setup pointers and size
-          r[i].setsize(s);
-          r[i].setindexptr(jptr);
+          build_data->rows_[i].setsize(s);
+          build_data->rows_[i].setindexptr(jptr);
         } else{
           // empty row
-          r[i].set(0,nullptr,nullptr);
+          build_data->rows_[i].set(0,nullptr,nullptr);
         }
 
         // advance position in global array
@@ -2142,16 +2143,16 @@ namespace Dune {
       B* aptr = a;
       for (size_type i=0; i<n; ++i) {
         // set row i
-        if (r[i].getsize() > 0) {
+        if (build_data->rows_[i].getsize() > 0) {
           // setup pointers and size
-          r[i].setptr(aptr);
+          build_data->rows_[i].setptr(aptr);
         } else{
           // empty row
-          r[i].set(0,nullptr,nullptr);
+          build_data->rows_[i].set(0,nullptr,nullptr);
         }
 
         // advance position in global array
-        aptr += r[i].getsize();
+        aptr += build_data->rows_[i].getsize();
       }
     }
 
@@ -2161,7 +2162,7 @@ namespace Dune {
       setWindowPointers(Mat.begin());
 
       // copy data
-      for (size_type i=0; i<n; i++) r[i] = Mat.r[i];
+      for (size_type i=0; i<n; i++) build_data->rows_[i] = Mat.build_data->rows_[i];
 
       // finish off
       build_data->build_mode = row_wise; // dummy
@@ -2192,32 +2193,32 @@ namespace Dune {
             a = nullptr;
           }
       }
-      else if (r)
+      else if (build_data->rows_)
       {
         // check if memory for rows have been allocated individually
         size_allocator_type sizeAllocator_{build_data->allocator_};
         for (size_type i=0; i<n; i++)
-          if (r[i].getsize()>0)
+          if (build_data->rows_[i].getsize()>0)
           {
-            for (B *col=r[i].getptr()+(r[i].getsize()-1),
-                 *colend = r[i].getptr()-1; col!=colend; --col) {
+            for (B *col=build_data->rows_[i].getptr()+(build_data->rows_[i].getsize()-1),
+                 *colend = build_data->rows_[i].getptr()-1; col!=colend; --col) {
               std::allocator_traits<allocator_type>::destroy(build_data->allocator_, col);
             }
-            sizeAllocator_.deallocate(r[i].getindexptr(),1);
-            build_data->allocator_.deallocate(r[i].getptr(),1);
+            sizeAllocator_.deallocate(build_data->rows_[i].getindexptr(),1);
+            build_data->allocator_.deallocate(build_data->rows_[i].getptr(),1);
             // clear out row data in case we don't want to deallocate the rows
             // otherwise we might run into a double free problem here later
-            r[i].set(0,nullptr,nullptr);
+            build_data->rows_[i].set(0,nullptr,nullptr);
           }
       }
 
       // deallocate the rows
-      if (n>0 && deallocateRows && r) {
+      if (n>0 && deallocateRows && build_data->rows_) {
         row_allocator_type rowAllocator_{build_data->allocator_};
-        for(row_type *riter=r+(n-1), *rend=r-1; riter!=rend; --riter)
+        for(row_type *riter=build_data->rows_+(n-1), *rend=build_data->rows_-1; riter!=rend; --riter)
           std::allocator_traits<row_allocator_type>::destroy(rowAllocator_, riter);
-        rowAllocator_.deallocate(r,n);
-        r = nullptr;
+        rowAllocator_.deallocate(build_data->rows_,n);
+        build_data->rows_ = nullptr;
       }
 
       // Mark matrix as not built at all.
@@ -2254,14 +2255,14 @@ namespace Dune {
       if(allocateRows) {
         row_allocator_type rowAllocator_{build_data->allocator_};
         if (n>0) {
-          if (r)
+          if (build_data->rows_)
             DUNE_THROW(InvalidStateException,"Rows have already been allocated, cannot allocate a second time");
-          r = rowAllocator_.allocate(rows);
+          build_data->rows_ = rowAllocator_.allocate(rows);
           // initialize row entries
-          for(row_type* ri=r; ri!=r+rows; ++ri)
+          for(row_type* ri=build_data->rows_; ri!=build_data->rows_+rows; ++ri)
             std::allocator_traits<row_allocator_type>::construct(rowAllocator_, ri, row_type());
         }else{
-          r = 0;
+          build_data->rows_ = nullptr;
         }
       }
 
@@ -2326,7 +2327,7 @@ namespace Dune {
       B* aptr = a + osize;
       for (size_type i=0; i<n; i++)
       {
-        r[i].set(0,aptr,jptr);
+        build_data->rows_[i].set(0,aptr,jptr);
         jptr = jptr + build_data->avg;
         aptr = aptr + build_data->avg;
       }
