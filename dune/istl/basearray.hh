@@ -61,7 +61,7 @@ namespace Imp {
     typedef A allocator_type;
 
     //! the type for the index access
-    typedef typename A::size_type size_type;
+    typedef typename std::allocator_traits<A>::size_type size_type;
 
     //! the type used for references
     using reference = B&;
@@ -316,7 +316,7 @@ namespace Imp {
     typedef A allocator_type;
 
     //! The type used for the index access
-    typedef typename A::size_type size_type;
+    typedef typename std::allocator_traits<A>::size_type size_type;
 
     //! the type used for references
     using reference = B&;
