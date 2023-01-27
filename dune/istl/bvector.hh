@@ -1035,8 +1035,7 @@ namespace Imp {
 
     //===== constructors and such
     //! makes empty array
-    CompressedBlockVectorWindow () : compressed_block_vector_unmanaged<B,A>()
-    {       }
+    CompressedBlockVectorWindow () = default;
 
     //! make array from given pointers and size
     CompressedBlockVectorWindow (B* _p, size_type* _j, size_type _n)
@@ -1044,31 +1043,6 @@ namespace Imp {
       this->n = _n;
       this->p = _p;
       this->j = _j;
-    }
-
-    //! copy constructor, this has reference semantics!
-    CompressedBlockVectorWindow (const CompressedBlockVectorWindow& a)
-    {
-      this->n = a.n;
-      this->p = a.p;
-      this->j = a.j;
-    }
-
-    //! assignment
-    CompressedBlockVectorWindow& operator= (const CompressedBlockVectorWindow& a)
-    {
-      // check correct size
-#ifdef DUNE_ISTL_WITH_CHECKING
-      if (this->n!=a.N()) DUNE_THROW(ISTLError,"vector size mismatch");
-#endif
-
-      if (&a!=this)     // check if this and a are different objects
-      {
-        // copy data
-        for (size_type i=0; i<this->n; i++) this->p[i]=a.p[i];
-        for (size_type i=0; i<this->n; i++) this->j[i]=a.j[i];
-      }
-      return *this;
     }
 
     //! assign from scalar

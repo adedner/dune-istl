@@ -2124,11 +2124,30 @@ namespace Dune {
       setWindowPointers(Mat.begin());
 
       // copy data
-      for (size_type i=0; i<n; i++) r[i] = Mat.r[i];
+      for (size_type i=0; i<n; i++)
+        copyRowData(Mat.r[i], r[i]);
 
       // finish off
       build_mode = row_wise; // dummy
       ready = built;
+    }
+
+    //! \brief Copy the content of the row `from` to the row `to`
+    static void copyRowData(const row_type& from, row_type& to)
+    {
+      // check correct size
+#ifdef DUNE_ISTL_WITH_CHECKING
+      if (from.getsize()!=to.getsize()) DUNE_THROW(ISTLError,"vector size mismatch");
+#endif
+
+      if (&from!=&to)     // check if this and a are different objects
+      {
+        // copy data
+        for (size_type i=0; i<from.getsize(); i++)
+          to.getptr()[i]=from.getptr()[i];
+        for (size_type i=0; i<from.getsize(); i++)
+          to.getindexptr()[i]=from.getindexptr()[i];
+      }
     }
 
     /**

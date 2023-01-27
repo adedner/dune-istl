@@ -524,14 +524,9 @@ namespace Imp {
     }
 
   protected:
-    //! makes empty array
-    compressed_base_array_unmanaged ()
-      : n(0), p(0), j(0)
-    {}
-
-    size_type n;      // number of elements in array
-    B *p;       // pointer to dynamically allocated built-in array
-    size_type* j;     // the index set
+    size_type n = 0;      // number of elements in array
+    B *p = nullptr;       // pointer to dynamically allocated built-in array
+    size_type* j = nullptr;     // the index set
   };
 
 } // end namespace Imp
