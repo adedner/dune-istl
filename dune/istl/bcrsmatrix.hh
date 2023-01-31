@@ -25,6 +25,7 @@
 #include <dune/common/ftraits.hh>
 #include <dune/common/scalarvectorview.hh>
 #include <dune/common/scalarmatrixview.hh>
+#include <dune/common/proxymemberaccess.hh>
 
 #include <dune/istl/blocklevel.hh>
 
@@ -590,17 +591,17 @@ namespace Dune {
       friend class RealRowIterator<ValueType>;
 
       //! constructor
-      RealRowIterator (row_type* _p, size_type _i)
-        : p(_p), i(_i)
+      RealRowIterator (size_type* rowOffset, size_type* colIndex, B* data, size_type _i)
+        : rowOffset_{rowOffset}, colIndex_{colIndex}, data_{data}, i(_i)
       {}
 
       //! empty constructor, use with care!
       RealRowIterator ()
-        : p(0), i(0)
+        : rowOffset_(nullptr), colIndex_{nullptr}, data_{nullptr}, i(0)
       {}
 
       RealRowIterator(const RealRowIterator<ValueType>& it)
-        : p(it.p), i(it.i)
+        : RealRowIterator{it.rowOffset_, it.colIndex_, it.data_, it.i}
       {}
 
 
@@ -612,28 +613,39 @@ namespace Dune {
 
       std::ptrdiff_t distanceTo(const RealRowIterator<ValueType>& other) const
       {
-        assert(other.p==p);
+        // assert(other.p==p);
         return (other.i-i);
       }
 
       std::ptrdiff_t distanceTo(const RealRowIterator<const ValueType>& other) const
       {
-        assert(other.p==p);
+        // assert(other.p==p);
         return (other.i-i);
       }
 
       //! equality
       bool equals (const RealRowIterator<ValueType>& other) const
       {
-        assert(other.p==p);
+        // assert(other.p==p);
         return i==other.i;
       }
 
       //! equality
       bool equals (const RealRowIterator<const ValueType>& other) const
       {
-        assert(other.p==p);
+        // assert(other.p==p);
         return i==other.i;
+      }
+
+      auto operator->() const
+      {
+        return handle_proxy_member_access(makeRow());
+      }
+
+
+      T operator*() const
+      {
+        return makeRow();
       }
 
     private:
@@ -654,18 +666,19 @@ namespace Dune {
         i+=diff;
       }
 
+      row_type makeRow() const {
+        return row_type{data_ + rowOffset_[i], colIndex_ + rowOffset_[i], rowOffset_[i+1] - rowOffset_[i]};
+      }
+
       T& elementAt(std::ptrdiff_t diff) const
       {
-        return p[i+diff];
+        // return p[i+diff];
+        DUNE_THROW(NotImplemented, "");
       }
 
-      //! dereferencing
-      row_type& dereference () const
-      {
-        return p[i];
-      }
-
-      row_type* p;
+      size_type* rowOffset_;
+      size_type* colIndex_;
+      B* data_;
       size_type i;
     };
 
@@ -686,27 +699,27 @@ namespace Dune {
     //! Get iterator to first row
     Iterator begin ()
     {
-      return Iterator(build_data->rows_,0);
+      return Iterator(rowOffsetView_, colIndexView_, a, 0);
     }
 
     //! Get iterator to one beyond last row
     Iterator end ()
     {
-      return Iterator(build_data->rows_,n);
+      return Iterator(rowOffsetView_, colIndexView_, a, n);
     }
 
     //! @returns an iterator that is positioned before
     //! the end iterator of the rows, i.e. at the last row.
     Iterator beforeEnd ()
     {
-      return Iterator(build_data->rows_,n-1);
+      return Iterator(rowOffsetView_, colIndexView_, a, n-1);
     }
 
     //! @returns an iterator that is positioned before
     //! the first row of the matrix.
     Iterator beforeBegin ()
     {
-      return Iterator(build_data->rows_,-1);
+      return Iterator(rowOffsetView_, colIndexView_, a, -1);
     }
 
     //! rename the iterators for easier access
@@ -723,27 +736,27 @@ namespace Dune {
     //! Get const iterator to first row
     ConstIterator begin () const
     {
-      return ConstIterator(build_data->rows_,0);
+      return ConstIterator(rowOffsetView_, colIndexView_, a, 0);
     }
 
     //! Get const iterator to one beyond last row
     ConstIterator end () const
     {
-      return ConstIterator(build_data->rows_,n);
+      return ConstIterator(rowOffsetView_, colIndexView_, a, n);
     }
 
     //! @returns an iterator that is positioned before
     //! the end iterator of the rows. i.e. at the last row.
     ConstIterator beforeEnd() const
     {
-      return ConstIterator(build_data->rows_,n-1);
+      return ConstIterator(rowOffsetView_, colIndexView_, a, n-1);
     }
 
     //! @returns an iterator that is positioned before
     //! the first row of the matrix.
     ConstIterator beforeBegin () const
     {
-      return ConstIterator(build_data->rows_,-1);
+      return ConstIterator(rowOffsetView_, colIndexView_, a, -1);
     }
 
     //! rename the const row iterator for easier access
@@ -759,23 +772,23 @@ namespace Dune {
 
     //! an empty matrix
     BCRSMatrix ()
-      : n(0), m(0), a(0), build_data{std::make_unique<BuildData>()}
+      : n(0), a(0), build_data{std::make_unique<BuildData>()}
     {}
 
     //! matrix with known number of nonzeroes
     BCRSMatrix (size_type _n, size_type _m, size_type _nnz, BuildMode bm)
-      : n(0), m(0), a(0),
-        build_data{std::make_unique<BuildData>(bm)}
+      : n(0), a(0),
+        build_data{std::make_unique<BuildData>(0, bm)}
     {
       allocate(_n, _m, _nnz,true,false);
     }
 
     //! matrix with unknown number of nonzeroes
     BCRSMatrix (size_type _n, size_type _m, BuildMode bm)
-      : n(0), m(0), a(0),
-        build_data{std::make_unique<BuildData>(bm)}
+      : n(0), a(0),
+        build_data{std::make_unique<BuildData>(0, bm)}
     {
-      allocate(_n, _m,0,true,false);
+      allocate(_n, _m, 0,true,false);
     }
 
     //! \brief construct matrix with a known average number of entries per row
@@ -790,8 +803,8 @@ namespace Dune {
      *
      */
     BCRSMatrix (size_type _n, size_type _m, size_type _avg, double compressionBufferSize, BuildMode bm)
-      : n(0), m(0), a(0),
-        build_data{std::make_unique<BuildData>(bm, notAllocated, 0, 0, _avg, compressionBufferSize)}
+      : n(0), a(0),
+        build_data{std::make_unique<BuildData>(0, bm, notAllocated, 0, 0, _avg, compressionBufferSize)}
     {
       if (bm != implicit)
         DUNE_THROW(BCRSMatrixError,"Only call this constructor when using the implicit build mode");
@@ -810,18 +823,21 @@ namespace Dune {
      * Does a deep copy as expected.
      */
     BCRSMatrix (const BCRSMatrix& Mat)
-      : n(0), m(0), a(0),
-        build_data{new BuildData{Mat.buildMode(), notAllocated, 0, 0, Mat.build_data->avg, Mat.build_data->compressionBufferSize_, Mat.build_data->allocator_}}
+      : n(0), a(0),
+        build_data{new BuildData{0, Mat.buildMode(), notAllocated, 0, 0, Mat.build_data->avg, Mat.build_data->compressionBufferSize_}}
     {
       if (!(Mat.buildStage() == notAllocated || Mat.buildStage() == built))
         DUNE_THROW(InvalidStateException,"BCRSMatrix can only be copy-constructed when source matrix is completely empty (size not set) or fully built)");
 
+      build_data->allocator_ = Mat.build_data->allocator_;
+      build_data->sizeAllocator_ = Mat.build_data->sizeAllocator_;
+      build_data->rowAllocator_ = Mat.build_data->rowAllocator_;
       // deep copy in global array
       size_type _nnz = Mat.nonzeroes();
 
       build_data->colIndex_ = Mat.build_data->colIndex_; // enable column index sharing, release array in case of row-wise allocation
       colIndexView_ = build_data->colIndex_.get();
-      allocate(Mat.n, Mat.m, _nnz, true, true);
+      allocate(Mat.N(), Mat.M(), _nnz, true, true);
 
       // build window structure
       copyWindowStructure(Mat);
@@ -927,14 +943,12 @@ namespace Dune {
       // and deallocate rows only if n != Mat.n
       deallocate(n!=Mat.n);
 
-      row_allocator_type rowAllocator_{build_data->allocator_};
-
       // reallocate the rows if required
       if (n>0 && n!=Mat.n) {
         // free rows
         for(row_type *riter=build_data->rows_+(n-1), *rend=build_data->rows_-1; riter!=rend; --riter)
-          std::allocator_traits<row_allocator_type>::destroy(rowAllocator_, riter);
-        rowAllocator_.deallocate(build_data->rows_,n);
+          std::allocator_traits<row_allocator_type>::destroy(build_data->rowAllocator_, riter);
+        build_data->rowAllocator_.deallocate(build_data->rows_,n);
       }
 
       build_data->nnz_ = Mat.nonzeroes();
@@ -943,7 +957,9 @@ namespace Dune {
       build_data->colIndex_ = Mat.build_data->colIndex_;
       colIndexView_ = build_data->colIndex_.get();
       build_data->allocator_ = Mat.build_data->allocator_;
-      allocate(Mat.n, Mat.m, build_data->nnz_, n!=Mat.n, true);
+      build_data->sizeAllocator_ = Mat.build_data->sizeAllocator_;
+      build_data->rowAllocator_ = Mat.build_data->rowAllocator_;
+      allocate(Mat.N(), Mat.M(), build_data->nnz_, N()!=Mat.N(), true);
 
       // build window structure
       copyWindowStructure(Mat);
@@ -1022,8 +1038,7 @@ namespace Dune {
             // additional memory.
             new (b) B[s];
 
-            size_allocator_type sizeAllocator_{Mat.build_data->allocator_};
-            size_type* j = sizeAllocator_.allocate(s);
+            size_type* j = Mat.build_data->sizeAllocator_.allocate(s);
             Mat.build_data->rows_[i].set(s,b,j);
           }
         }else
@@ -1040,6 +1055,7 @@ namespace Dune {
         // check if this was last row
         if (i==Mat.n)
         {
+          Mat.buildRowOffsets();
           Mat.build_data->ready = built;
           if(Mat.build_data->nnz_ > 0)
           {
@@ -1176,18 +1192,18 @@ namespace Dune {
       const size_type nnz = build_data->nnz_;
       if(nnz == 0)
         // allocate/check memory
-        allocate(n,m,total,false,false);
+        allocate(N(),M(),total,false,false);
       else if(nnz < total)
         DUNE_THROW(BCRSMatrixError,"Specified number of nonzeros ("<<nnz<<") not "
                                                              <<"sufficient for calculated nonzeros ("<<total<<"! ");
 
       // set the window pointers correctly
-      setColumnPointers(begin());
+      setColumnPointers(build_data->rows_);
 
       // initialize colIndex_ array with m (an invalid column index)
       // this indicates an unused entry
       for (size_type k=0; k<nnz; k++)
-        colIndexView_[k] = m;
+        colIndexView_[k] = M();
       build_data->ready = rowSizesBuilt;
     }
 
@@ -1213,7 +1229,7 @@ namespace Dune {
       if (buildStage()==notAllocated)
         DUNE_THROW(BCRSMatrixError,"matrix size not set and no memory allocated yet");
 
-      if (col >= m)
+      if (col >= M())
         DUNE_THROW(BCRSMatrixError,"column index exceeds matrix size");
 
       // get row range
@@ -1227,7 +1243,7 @@ namespace Dune {
       if (pos!=last && *pos == col) return;
 
       // find end of already inserted column indices
-      size_type* end = std::lower_bound(pos,last,m);
+      size_type* end = std::lower_bound(pos,last,M());
       if (end==last)
         DUNE_THROW(BCRSMatrixError,"row is too small");
 
@@ -1271,21 +1287,21 @@ namespace Dune {
         DUNE_THROW(BCRSMatrixError,"matrix size not set and no memory allocated yet");
 
       // check if there are undefined indices
-      RowIterator endi=end();
-      for (RowIterator i=begin(); i!=endi; ++i)
+      for (size_type row = 0; row != n; ++row)
       {
-        ColIterator endj = (*i).end();
-        for (ColIterator j=(*i).begin(); j!=endj; ++j) {
-          if (j.index() >= m) {
-            dwarn << "WARNING: size of row "<< i.index()<<" is "<<j.offset()<<". But was specified as being "<< (*i).end().offset()
+        ColIterator endj = build_data->rows_[row].end();
+        for (ColIterator j=build_data->rows_[row].begin(); j!=endj; ++j) {
+          if (j.index() >= M()) {
+            dwarn << "WARNING: size of row "<< row<<" is "<<j.offset()<<". But was specified as being "<< build_data->rows_[row].end().offset()
                   <<". This means you are wasting valuable space and creating additional cache misses!"<<std::endl;
-            build_data->nnz_ -= ((*i).end().offset() - j.offset());
-            build_data->rows_[i.index()].setsize(j.offset());
+            build_data->nnz_ -= (build_data->rows_[row].end().offset() - j.offset());
+            build_data->rows_[row].setsize(j.offset());
             break;
           }
         }
       }
 
+      buildRowOffsets();
       allocateData();
       setDataPointers();
 
@@ -1494,6 +1510,8 @@ namespace Dune {
         stats.avg = (double) (build_data->nnz_) / (double) n;
         stats.mem_ratio = (double) (build_data->nnz_) / (double) build_data->allocationSize_;
       }
+
+      buildRowOffsets();
 
       //matrix is now built
       build_data->ready = built;
@@ -2000,7 +2018,7 @@ namespace Dune {
     //! number of columns (counted in blocks)
     size_type M () const
     {
-      return m;
+      return build_data->m;
     }
 
     //! number of blocks that are stored (the number of blocks that possibly are nonzero)
@@ -2041,20 +2059,19 @@ namespace Dune {
     typedef std::map<std::pair<size_type,size_type>, B> OverflowType;
 
     // size of the matrix
-    size_type n;       // number of rows
-    // 8
-    size_type m;       // number of columns
-
+    size_type n = 0;       // number of rows
 
     // dynamically allocated memory
-    B*   a;      // [allocationSize] non-zero entries of the matrix in row-wise ordering
+    B*   a = nullptr;      // [allocationSize] non-zero entries of the matrix in row-wise ordering
 
-    size_type* colIndexView_;
+    size_type* colIndexView_ = nullptr;    // [allocationSize] view to column indices of entries
 
-    // size_type* rowOffset_;
+    size_type* rowOffsetView_ = nullptr;   // [n] view to index offests to the row data
 
     //! variables needed to build the matrix.
     struct BuildData {
+      size_type m;       // number of columns
+
       // state information
       BuildMode build_mode = unknown;     // row wise or whole matrix
       BuildStage ready = notAllocated;               // indicate the stage the matrix building is in
@@ -2069,13 +2086,17 @@ namespace Dune {
 
       double compressionBufferSize_ = -1;
 
-      [[no_unique_address]] typename std::allocator_traits<A>::template rebind_alloc<B> allocator_;
+      [[no_unique_address]] allocator_type allocator_;
+
+      [[no_unique_address]] size_allocator_type sizeAllocator_;
+
+      [[no_unique_address]] row_allocator_type rowAllocator_;
 
       // If a single array of column indices is used, it can be shared
       // between different matrices with the same sparsity pattern
       std::shared_ptr<size_type> colIndex_;  // [allocationSize] column indices of entries
 
-      // std::shared_ptr<size_type> rowOffset_;  // [n] index offests to the row data
+      std::shared_ptr<size_type> rowOffset_;  // [n] index offests to the row data
 
       // the rows are dynamically allocated
       row_type* rows_ = nullptr;     // [n] the individual rows having pointers into a,j arrays
@@ -2085,6 +2106,22 @@ namespace Dune {
 
     // Store build data in the heap to make BCRSMatrix smaller. This data shall have the same lifetime as the class
     std::unique_ptr<BuildData> build_data;
+
+    void buildRowOffsets() {
+      // builds index offsets to the row data (data->rowOffset_) out of rows (data->rows)
+      // this saves memory traffic when doing matrix traversal
+      // this builds the typical row compressed indices
+
+      build_data->rowOffset_.reset(build_data->sizeAllocator_.allocate(n+1),
+        [alloc = build_data->sizeAllocator_, size = n+1](auto ptr) mutable noexcept {
+          alloc.deallocate(ptr, size);
+        });
+
+      rowOffsetView_ = build_data->rowOffset_.get();
+      rowOffsetView_[0] = 0;
+      for (size_type i=0; i!=n; ++i)
+        rowOffsetView_[i+1] = rowOffsetView_[i] + build_data->rows_[i].size();
+    }
 
 
     void setWindowPointers(ConstRowIterator row)
@@ -2112,7 +2149,7 @@ namespace Dune {
      * This method does not modify the data pointers, as those are set only
      * after building the pattern (to allow for a delayed allocation).
      */
-    void setColumnPointers(ConstRowIterator row)
+    void setColumnPointers(row_type* row)
     {
       size_type* jptr = colIndexView_;
       for (size_type i=0; i<n; ++i, ++row) {
@@ -2164,6 +2201,9 @@ namespace Dune {
       // copy data
       for (size_type i=0; i<n; i++) build_data->rows_[i] = Mat.build_data->rows_[i];
 
+      build_data->rowOffset_ = Mat.build_data->rowOffset_;
+      rowOffsetView_ = build_data->rowOffset_.get();
+
       // finish off
       build_data->build_mode = row_wise; // dummy
       build_data->ready = built;
@@ -2196,7 +2236,6 @@ namespace Dune {
       else if (build_data->rows_)
       {
         // check if memory for rows have been allocated individually
-        size_allocator_type sizeAllocator_{build_data->allocator_};
         for (size_type i=0; i<n; i++)
           if (build_data->rows_[i].getsize()>0)
           {
@@ -2204,7 +2243,7 @@ namespace Dune {
                  *colend = build_data->rows_[i].getptr()-1; col!=colend; --col) {
               std::allocator_traits<allocator_type>::destroy(build_data->allocator_, col);
             }
-            sizeAllocator_.deallocate(build_data->rows_[i].getindexptr(),1);
+            build_data->sizeAllocator_.deallocate(build_data->rows_[i].getindexptr(),1);
             build_data->allocator_.deallocate(build_data->rows_[i].getptr(),1);
             // clear out row data in case we don't want to deallocate the rows
             // otherwise we might run into a double free problem here later
@@ -2214,10 +2253,9 @@ namespace Dune {
 
       // deallocate the rows
       if (n>0 && deallocateRows && build_data->rows_) {
-        row_allocator_type rowAllocator_{build_data->allocator_};
         for(row_type *riter=build_data->rows_+(n-1), *rend=build_data->rows_-1; riter!=rend; --riter)
-          std::allocator_traits<row_allocator_type>::destroy(rowAllocator_, riter);
-        rowAllocator_.deallocate(build_data->rows_,n);
+          std::allocator_traits<row_allocator_type>::destroy(build_data->rowAllocator_, riter);
+        build_data->rowAllocator_.deallocate(build_data->rows_,n);
         build_data->rows_ = nullptr;
       }
 
@@ -2247,20 +2285,19 @@ namespace Dune {
     {
       // Store size
       n = rows;
-      m = columns;
+      build_data->m = columns;
       build_data->nnz_ = allocationSize;
       build_data->allocationSize_ = allocationSize;
 
       // allocate rows
       if(allocateRows) {
-        row_allocator_type rowAllocator_{build_data->allocator_};
         if (n>0) {
           if (build_data->rows_)
             DUNE_THROW(InvalidStateException,"Rows have already been allocated, cannot allocate a second time");
-          build_data->rows_ = rowAllocator_.allocate(rows);
+          build_data->rows_ = build_data->rowAllocator_.allocate(rows);
           // initialize row entries
           for(row_type* ri=build_data->rows_; ri!=build_data->rows_+rows; ++ri)
-            std::allocator_traits<row_allocator_type>::construct(rowAllocator_, ri, row_type());
+            std::allocator_traits<row_allocator_type>::construct(build_data->rowAllocator_, ri, row_type());
         }else{
           build_data->rows_ = nullptr;
         }
@@ -2271,11 +2308,10 @@ namespace Dune {
         allocateData();
       // allocate column indices only if not yet present (enable sharing)
       if (build_data->allocationSize_>0) {
-        size_allocator_type sizeAllocator_{build_data->allocator_};
         // we copy allocator and size to the deleter since _j may outlive this class
         if (!build_data->colIndex_)
-          build_data->colIndex_.reset(sizeAllocator_.allocate(build_data->allocationSize_),
-            [alloc = sizeAllocator_, size = build_data->allocationSize_](auto ptr) mutable noexcept {
+          build_data->colIndex_.reset(build_data->sizeAllocator_.allocate(build_data->allocationSize_),
+            [alloc = build_data->sizeAllocator_, size = build_data->allocationSize_](auto ptr) mutable noexcept {
               alloc.deallocate(ptr, size);
             });
       }else{
