@@ -823,7 +823,8 @@ namespace Dune {
       // deep copy in global array
       size_type _nnz = Mat.nonzeroes();
 
-      build_data->j_ = Mat.build_data->j_; // enable column index sharing, release array in case of row-wise allocation
+      build_data->colIndex_ = Mat.build_data->colIndex_; // enable column index sharing, release array in case of row-wise allocation
+      colIndexView_ = build_data->colIndex_.get();
       allocate(Mat.n, Mat.m, _nnz, true, true);
 
       // build window structure
@@ -926,7 +927,7 @@ namespace Dune {
       if (!((buildStage() == notAllocated || buildStage() == built) && (Mat.buildStage() == notAllocated || Mat.buildStage() == built)))
         DUNE_THROW(InvalidStateException,"BCRSMatrix can only be copied when both target and source are empty or fully built)");
 
-      // make it simple: ALWAYS throw away memory for a and j_
+      // make it simple: ALWAYS throw away memory for a and colIndex_
       // and deallocate rows only if n != Mat.n
       deallocate(n!=Mat.n);
 
@@ -942,8 +943,9 @@ namespace Dune {
 
       build_data->nnz_ = Mat.nonzeroes();
 
-      // allocate a, share j_
-      build_data->j_ = Mat.build_data->j_;
+      // allocate a, share colIndex_
+      build_data->colIndex_ = Mat.build_data->colIndex_;
+      colIndexView_ = build_data->colIndex_.get();
       build_data->allocator_ = Mat.build_data->allocator_;
       allocate(Mat.n, Mat.m, build_data->nnz_, n!=Mat.n, true);
 
@@ -971,7 +973,7 @@ namespace Dune {
     public:
       //! constructor
       CreateIterator (BCRSMatrix& _Mat, size_type _i)
-        : Mat(_Mat), i(_i), nnz(0), current_row(nullptr, Mat.build_data->j_.get(), 0)
+        : Mat(_Mat), i(_i), nnz(0), current_row(nullptr, Mat.colIndexView_, 0)
       {
         if (Mat.buildMode() == unknown && Mat.buildStage() == building)
           {
@@ -994,7 +996,7 @@ namespace Dune {
           DUNE_THROW(BCRSMatrixError,"matrix already built up");
 
         // row i is defined through the pattern
-        // get memory for the row and initialize the j_ array
+        // get memory for the row and initialize the colIndex_ array
         // this depends on the allocation mode
 
         // compute size of the row
@@ -1186,10 +1188,10 @@ namespace Dune {
       // set the window pointers correctly
       setColumnPointers(begin());
 
-      // initialize j_ array with m (an invalid column index)
+      // initialize colIndex_ array with m (an invalid column index)
       // this indicates an unused entry
       for (size_type k=0; k<nnz; k++)
-        build_data->j_.get()[k] = m;
+        colIndexView_[k] = m;
       build_data->ready = rowSizesBuilt;
     }
 
@@ -1391,7 +1393,7 @@ namespace Dune {
       stats.maximum = 0;
 
       //get insertion iterators pointing to one before start (for later use of ++it)
-      size_type* jiit = build_data->j_.get();
+      size_type* jiit = build_data->colIndex_.get();
       B* aiit = a;
 
       //get iterator to the smallest overflow element
@@ -1451,7 +1453,7 @@ namespace Dune {
           //copy element from array
           *jiit = **it;
           ++jiit;
-          B* apos = *it - build_data->j_.get() + a;
+          B* apos = *it - build_data->colIndex_.get() + a;
           *aiit = *apos;
           ++aiit;
         }
@@ -1491,7 +1493,7 @@ namespace Dune {
       }
       else
       {
-        std::ptrdiff_t diff = (r[n-1].getindexptr() + r[n-1].getsize() - build_data->j_.get());
+        std::ptrdiff_t diff = (build_data->rows_[n-1].getindexptr() + build_data->rows_[n-1].getsize() - build_data->colIndex_.get());
         build_data->nnz_ = diff;
         stats.avg = (double) (build_data->nnz_) / (double) n;
         stats.mem_ratio = (double) (build_data->nnz_) / (double) build_data->allocationSize_;
@@ -2053,6 +2055,8 @@ namespace Dune {
     // dynamically allocated memory
     B*   a;      // [allocationSize] non-zero entries of the matrix in row-wise ordering
 
+    size_type* colIndexView_;
+
     //! variables needed to build the matrix.
     struct BuildData {
       // state information
@@ -2073,18 +2077,18 @@ namespace Dune {
 
       // If a single array of column indices is used, it can be shared
       // between different matrices with the same sparsity pattern
-      std::shared_ptr<size_type> j_;  // [allocationSize] column indices of entries
+      std::shared_ptr<size_type> colIndex_;  // [allocationSize] column indices of entries
 
       OverflowType overflow;
     };
 
-    // Store build data in the heap to make BCRSMatrix smaller
+    // Store build data in the heap to make BCRSMatrix smaller. This data shall have the same lifetime as the class
     std::unique_ptr<BuildData> build_data;
 
 
     void setWindowPointers(ConstRowIterator row)
     {
-      row_type current_row(a,build_data->j_.get(),0); // Pointers to current row data
+      row_type current_row(a,colIndexView_,0); // Pointers to current row data
       for (size_type i=0; i<n; i++, ++row) {
         // set row i
         size_type s = row->getsize();
@@ -2109,7 +2113,7 @@ namespace Dune {
      */
     void setColumnPointers(ConstRowIterator row)
     {
-      size_type* jptr = build_data->j_.get();
+      size_type* jptr = colIndexView_;
       for (size_type i=0; i<n; ++i, ++row) {
         // set row i
         size_type s = row->getsize();
@@ -2177,8 +2181,9 @@ namespace Dune {
 
       if (build_data->allocationSize_>0)
       {
-        // a,j_ have been allocated as one long vector
-        build_data->j_.reset();
+        // a,colIndex_ have been allocated as one long vector
+        build_data->colIndex_.reset();
+        colIndexView_ = nullptr;
         if (a)
           {
             for(B *aiter=a+(build_data->allocationSize_-1), *aend=a-1; aiter!=aend; --aiter)
@@ -2260,21 +2265,22 @@ namespace Dune {
         }
       }
 
-      // allocate a and j_ array
+      // allocate a and colIndex_ array
       if (allocate_data)
         allocateData();
       // allocate column indices only if not yet present (enable sharing)
       if (build_data->allocationSize_>0) {
         size_allocator_type sizeAllocator_{build_data->allocator_};
         // we copy allocator and size to the deleter since _j may outlive this class
-        if (!build_data->j_.get())
-          build_data->j_.reset(sizeAllocator_.allocate(build_data->allocationSize_),
+        if (!build_data->colIndex_)
+          build_data->colIndex_.reset(sizeAllocator_.allocate(build_data->allocationSize_),
             [alloc = sizeAllocator_, size = build_data->allocationSize_](auto ptr) mutable noexcept {
               alloc.deallocate(ptr, size);
             });
       }else{
-        build_data->j_.reset();
+        build_data->colIndex_.reset();
       }
+      colIndexView_ = build_data->colIndex_.get();
 
       // Mark the matrix as not built.
       build_data->ready = building;
@@ -2316,7 +2322,7 @@ namespace Dune {
       allocate(_n, _m, build_data->allocationSize_,true,true);
 
       //set row pointers correctly
-      size_type* jptr = build_data->j_.get() + osize;
+      size_type* jptr = colIndexView_ + osize;
       B* aptr = a + osize;
       for (size_type i=0; i<n; i++)
       {
