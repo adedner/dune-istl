@@ -40,6 +40,7 @@
 
 #include <dune/common/timer.hh>
 #include <dune/common/fvector.hh>
+#include <dune/common/bitsetvector.hh>
 #include <dune/common/reservedvector.hh>
 #include <dune/istl/bvector.hh>
 #include <dune/istl/multitypeblockvector.hh>
@@ -237,6 +238,42 @@ auto sp_C(const V & x, const V & y, const S & skipEntries)
     return sp-skip;
 }
 
+struct ISTLTypes
+{
+    template<typename X1, typename X2>
+    auto
+    type(const MultiTypeBlockVector<X1,X2> &x) {
+        auto b1 = type(x[Dune::Indices::_0]);
+        auto b2 = type(x[Dune::Indices::_1]);
+        using B1 = decltype(b1);
+        using B2 = decltype(b2);
+        return MultiTypeBlockVector<B1,B2>(b1,b2);
+    }
+    template<int N>
+    BlockVector<FieldVector<bool,N>> type(const BlockVector<FieldVector<double,N>> &) {}
+    template<int N>
+    BlockVector<FieldVector<bool,N>> type(BlockVector<FieldVector<double,N>> &&) {}
+    BlockVector<unsigned char> type(const BlockVector<double> &) {}
+    BlockVector<unsigned char> type(BlockVector<double> &&) {}
+};
+
+struct BitTypes
+{
+    template<typename X1, typename X2>
+    auto
+    type(const MultiTypeBlockVector<X1,X2> & x) {
+        auto b1 = type(x[Dune::Indices::_0]);
+        auto b2 = type(x[Dune::Indices::_1]);
+        using B1 = decltype(b1);
+        using B2 = decltype(b2);
+        // return MultiTypeBlockVector<B1,B2>(b1,b2);
+        return std::make_tuple(b1,b2);
+    }
+    template<int N>
+    BitSetVector<N> type(const BlockVector<FieldVector<double,N>> &) {}
+    std::vector<bool> type(const BlockVector<double> &) {}
+};
+
 /*
   Calculate norm of
   ((1,2),(2,3),(3,4),(4,5),(5,6))
@@ -253,23 +290,30 @@ auto sp_C(const V & x, const V & y, const S & skipEntries)
 
   The result of the weighted sp x * w * x = 68
  */
+template<typename TypeProp = ISTLTypes>
 auto generate_basic(bool unbalanced)
 {
     std::vector<ReservedVector<int,2>> skipIdx {{2,0},{2,1},{3,0},{4,1}};
     std::vector<ReservedVector<int,2>> skipIdx2 {{2},{3,0},{4,1}};
     BlockVector<FieldVector<double,2>> x {{1,2},{2,3},{3,4},{4,5},{5,6}};
-    BlockVector<FieldVector<bool,2>> useBool {{1,1},{1,1},{0,0},{0,1},{1,0}};
+    /////
+    using BoolVecType = decltype(std::declval<TypeProp>().type(x));
+    BoolVecType useBool(5,true);
+    useBool[2][0] = false;
+    useBool[2][1] = false;
+    useBool[3][0] = false;
+    useBool[4][1] = false;
+    // BlockVector<FieldVector<bool,2>> useBool {{1,1},{1,1},{0,0},{0,1},{1,0}};
     if (unbalanced)
         return std::make_tuple(x, useBool, skipIdx2);
     else
         return std::make_tuple(x, useBool, skipIdx);
 }
 
-template<std::size_t B, std::size_t maxSize = 2>
+template<std::size_t B, typename TypeProp = ISTLTypes>
 auto generate_nested(int N,
     double propability,
-    double propability2
-    )
+    double propability2)
 {
     // generate large vector
     BlockVector<FieldVector<double,B>> x(N);
@@ -279,7 +323,9 @@ auto generate_nested(int N,
 
     // generate bool vector
     // and skip entries from bool vector
-    BlockVector<FieldVector<bool,B>> useBool(N);
+    using BoolVecType = decltype(std::declval<TypeProp>().type(x));
+    BoolVecType useBool(N);
+    static const int maxSize = 2;
     using MultiIndex = Dune::ReservedVector<unsigned int,maxSize>;
     std::vector<MultiIndex> skipIdx;
     skipIdx.reserve(2*propability*N*B);
@@ -325,7 +371,15 @@ auto generate_nested(int N,
     return std::make_tuple(x, useBool, skipIdx);
 }
 
-template<std::size_t maxSize = 1>
+template<std::size_t B>
+auto generate_nested_bitVec(int N,
+    double propability,
+    double propability2)
+{
+    return generate_nested<B,BitTypes>(N,propability,propability2);
+}
+
+template<typename TypeProp = ISTLTypes>
 auto generate_flat(int N,
     double propability)
 {
@@ -336,7 +390,9 @@ auto generate_flat(int N,
 
     // generate bool vector
     // and skip entries from bool vector
-    BlockVector<unsigned char> useBool(N);
+    using BoolVecType = decltype(std::declval<TypeProp>().type(x));
+    BoolVecType useBool(N);
+    static const int maxSize = 1;
     using MultiIndex = Dune::ReservedVector<unsigned int,maxSize>;
     std::vector<MultiIndex> skipIdx;
     skipIdx.reserve(2*propability*N);
@@ -354,13 +410,14 @@ auto generate_flat(int N,
     return std::make_tuple(x, useBool, skipIdx);
 }
 
+template<typename TypeProp = ISTLTypes>
 auto generate_multitype(int N1, int N2,
     double propability = 0.01
     )
 {
     // generate a tailor-hood like structure
-    auto [x1, useBool1, skipIdx1] = generate_flat(N1,propability);
-    auto [x2, useBool2, skipIdx2] = generate_nested<3>(N2,propability,1);
+    auto [x1, useBool1, skipIdx1] = generate_flat<TypeProp>(N1,propability);
+    auto [x2, useBool2, skipIdx2] = generate_nested<3,TypeProp>(N2,propability,1);
 
     // combine blocks
     MultiTypeBlockVector<
@@ -368,7 +425,9 @@ auto generate_multitype(int N1, int N2,
         BlockVector<FieldVector<double,3>>
         //decltype(x1),decltype(x2)
         > x(x1,x2);
-    MultiTypeBlockVector<decltype(useBool1),decltype(useBool2)> useBool(useBool1,useBool2);
+    // MultiTypeBlockVector<decltype(useBool1),decltype(useBool2)>
+    using BoolVecType = decltype(std::declval<TypeProp>().type(x));
+    BoolVecType useBool(useBool1,useBool2);
 
     // merge index lists
     using MultiIndex = Dune::ReservedVector<unsigned int,3>;
@@ -441,8 +500,9 @@ void do_test(std::string name, F && f, Args&&... args)
 int main()
 {
     using namespace Dune::Indices;
-    test(basic," [balanced]",false);
-    test(basic," [unbalanced]",true);
+    test(basic<>," [balanced]",false);
+    test(basic<>," [unbalanced]",true);
+    test(basic<BitTypes>, " [unbalanced]",true);
     test(nested<5> ," [simple]", 10, 0.1, 0.9);
     test(nested<5> ," [larger]", 10000000, 0.01, 0.95);
     test(nested<5> ," [many skipped]", 10000000, 0.2, 0.5);
@@ -451,7 +511,16 @@ int main()
     test(nested<10>," [10Mx10]", 10000000,0.01,1.0);
     test(nested<2> ," [50Mx2]", 50000000,0.01,1.0);
     test(nested<1> ," [100Mx1]", 100000000,0.01,1.0);
-    test(nested<10> ," [long MI]", 20000000,0.01,0.5);
-    test(multitype," [2/3 levels]", 5000000,5000000,0.01);
+    test(nested_bitVec<10>," [10Mx10]", 10000000,0.01,1.0);
+    test(nested_bitVec<2> ," [50Mx2]", 50000000,0.01,1.0);
+    test(nested_bitVec<1> ," [100Mx1]", 100000000,0.01,1.0);
+    test(nested<10>," [long MI]", 10000000,0.01,0.5);
+    test(flat<>    ," [flat]", 100000000,0.01);
+    test(flat<BitTypes>    ," [flat]", 100000000,0.01);
+    test(multitype<> ," [2/3 levels]", 5000000,5000000,0.01);
+    // BitTypes does not work for MultiTypeBlockVector,
+    // as bitsetvector is not accepted as a nested type in MultiTypeBlockVector
+    // and tuple<...> does not work in the hybrid algorithms
+    // test(multitype<BitTypes> ," [2/3 levels]", 5000000,5000000,0.01);
     std::cout << "----------------------------------------------\n";
 }
