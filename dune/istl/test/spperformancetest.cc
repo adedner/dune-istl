@@ -42,7 +42,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/reservedvector.hh>
 #include <dune/istl/bvector.hh>
-#include <dune/istl/vbvector.hh>
+#include <dune/istl/multitypeblockvector.hh>
 #include <dune/istl/access.hh>
 #include <dune/istl/foreach.hh>
 
@@ -153,8 +153,6 @@ namespace ScalarProductHelper {
 
         if constexpr (isScalar)
         {
-            // ReservedVector<int,3> idx(indices.begin(),indices.end()); idx.resize(L);
-            // std::cout << "process " << idx << std::endl;
             return x*y;
         }
         else
@@ -166,14 +164,21 @@ namespace ScalarProductHelper {
                 bool doCheck = (w!=wend && critical && (*w)[level] == indices[level]);
                 if (doCheck && (w->size() == L+1) && cmp(*w,indices,level)) // check AND end of skip-index AND indices match
                 {
-                    // ReservedVector<int,3> idx(indices.begin(),indices.end()); idx.resize(L+1);
-                    // std::cout << "skip entry - " << idx << " (" << *w << ")" << std::endl;
                     w++;
                 }
                 else {
-                    sp += SP_skip(x[indices[level]], y[indices[level]],
-                        w, wend, indices, doCheck,
-                        index_constant<L+1>{});
+                    if constexpr(ISTL::hasDynamicIndexAccess<V>{}) {
+                        // access block directly
+                        int i = indices[level];
+                        sp += SP_skip(x[i], y[i], w, wend, indices, doCheck, index_constant<L+1>{});
+                    }
+                    else if constexpr(ISTL::hasStaticIndexAccess<V>{}) {
+                        // access block by searching for the static index equal to mi[i]
+                        using Size = decltype(Hybrid::size(x));
+                        Hybrid::switchCases(std::make_index_sequence<Size::value>{},indices[level],
+                            [&](auto i) {
+                                sp += SP_skip(x[i], y[i], w, wend, indices, doCheck, index_constant<L+1>{}); });
+                    }
                 }
             }
             return sp;
@@ -260,7 +265,7 @@ auto generate_basic(bool unbalanced)
         return std::make_tuple(x, useBool, skipIdx);
 }
 
-template<std::size_t B>
+template<std::size_t B, std::size_t maxSize = 2>
 auto generate_nested(int N,
     double propability,
     double propability2
@@ -275,7 +280,7 @@ auto generate_nested(int N,
     // generate bool vector
     // and skip entries from bool vector
     BlockVector<FieldVector<bool,B>> useBool(N);
-    using MultiIndex = Dune::ReservedVector<unsigned int,2>;
+    using MultiIndex = Dune::ReservedVector<unsigned int,maxSize>;
     std::vector<MultiIndex> skipIdx;
     skipIdx.reserve(2*propability*N*B);
     for (unsigned int i=0; i<N; i++)
@@ -320,74 +325,72 @@ auto generate_nested(int N,
     return std::make_tuple(x, useBool, skipIdx);
 }
 
-// template<std::size_t B>
-// void variable_test(int N,
-//     index_constant<B>,
-//     double propability = 0.01, // 1e-2;
-//     double propability2 = 0.95 // 1e-2;
-//     )
-// {
-//     int skipped = 0; // count how many entries we effictively skip
+template<std::size_t maxSize = 1>
+auto generate_flat(int N,
+    double propability)
+{
+    // generate large vector
+    BlockVector<double> x(N);
+    for (unsigned int i=0; i<N; i++)
+            x[i] = drand48();
 
-//     // generate large vector
-//     BlockVector<FieldVector<double,B>> x(N);
-//     for (unsigned int i=0; i<N; i++)
-//         for (unsigned int j=0; j<B; j++)
-//             x[i][j] = drand48();
+    // generate bool vector
+    // and skip entries from bool vector
+    BlockVector<unsigned char> useBool(N);
+    using MultiIndex = Dune::ReservedVector<unsigned int,maxSize>;
+    std::vector<MultiIndex> skipIdx;
+    skipIdx.reserve(2*propability*N);
+    for (unsigned int i=0; i<N; i++)
+    {
+        bool skip_entry = (drand48()<propability)?true:false;
+        useBool[i] = not(skip_entry);
+        if (skip_entry)
+        {
+            MultiIndex idx({i});
+            skipIdx.push_back(idx);
+        }
+    }
 
-//     // generate bool vector
-//     // and skip entries from bool vector
-//     BlockVector<FieldVector<bool,B>> useBool(N);
-//     using MultiIndex = Dune::ReservedVector<unsigned int,2>;
-//     std::vector<MultiIndex> skipIdx;
-//     skipIdx.reserve(2*propability*N*B);
-//     for (unsigned int i=0; i<N; i++)
-//     {
-//         bool might_skip_block = (drand48()<propability)?true:false;
-//         bool skip_block = true;
-//         for (unsigned int j=0; j<B; j++) {
-//             bool skip_entry = drand48()>(1-propability2)?true:false;
-//             useBool[i][j] = not(might_skip_block && skip_entry);
-//             skip_block = skip_block && (not useBool[i][j]);
-//             skipped += not useBool[i][j];
-//         }
-//         if (skip_block)
-//         {
-//             MultiIndex idx({i});
-//             skipIdx.push_back(idx);
-//         }
-//         else
-//         {
-//             for (unsigned int j=0; j<B; j++) {
-//                 if (useBool[i][j] == false) {
-//                     MultiIndex idx({i,j});
-//                     skipIdx.push_back(idx);
-//                 }
-//             }
-//         }
-//     }
+    return std::make_tuple(x, useBool, skipIdx);
+}
 
-//     // print skip and bool vector
-//     if constexpr (0) {
-//         for (auto && _B : useBool)
-//         {
-//             std::cout << ": ";
-//             for (auto && _b : _B)
-//                 std::cout << _b << "\t";
-//             std::cout << "\n";
-//         }
+auto generate_multitype(int N1, int N2,
+    double propability = 0.01
+    )
+{
+    // generate a tailor-hood like structure
+    auto [x1, useBool1, skipIdx1] = generate_flat(N1,propability);
+    auto [x2, useBool2, skipIdx2] = generate_nested<3>(N2,propability,1);
 
-//         for (auto && idx : skipIdx)
-//             std::cout << "- " << idx << std::endl;
-//     }
+    // combine blocks
+    MultiTypeBlockVector<
+        BlockVector<double>,
+        BlockVector<FieldVector<double,3>>
+        //decltype(x1),decltype(x2)
+        > x(x1,x2);
+    MultiTypeBlockVector<decltype(useBool1),decltype(useBool2)> useBool(useBool1,useBool2);
 
-//     std::cout << "skip " << skipped << " of " << N*B << " entries (" << 100 * skipIdx.size() / N / B << "%)\n";
-//     std::cout << "variable_test\tA\t" << xA << "\t(" << tA << " s)" << std::endl;
-//     std::cout << "variable_test\tB\t" << xB << "\t(" << tB << " s)"
-//               << " -> diff " << std::abs(xA-xB) << std::endl;
-//     std::cout << "variable_test\tC\t" << xC << "\t(" << tC << " s)"
-//               << " -> diff " << std::abs(xA-xC) << std::endl;
-// }
+    // merge index lists
+    using MultiIndex = Dune::ReservedVector<unsigned int,3>;
+    std::vector<MultiIndex> skipIdx;
+    skipIdx.reserve(skipIdx1.size()+skipIdx2.size());
+    for (auto i : skipIdx1)
+    {
+        MultiIndex idx({0});
+        for (auto j : i)
+            idx.push_back(j);
+        skipIdx.push_back(idx);
+    }
+    for (auto i : skipIdx2)
+    {
+        MultiIndex idx({1});
+        for (auto j : i)
+            idx.push_back(j);
+        skipIdx.push_back(idx);
+    }
+
+    return std::make_tuple(x, useBool, skipIdx);
+}
 
 template<typename F, typename... Args>
 void do_test(std::string name, F && f, Args&&... args)
@@ -440,13 +443,15 @@ int main()
     using namespace Dune::Indices;
     test(basic," [balanced]",false);
     test(basic," [unbalanced]",true);
-    test(nested<5>," [simple]", 10, 0.1, 0.9);
-    test(nested<5>," [larger]", 10000000, 0.01, 0.95);
-    test(nested<5>," [many skipped]", 10000000, 0.2, 0.5);
+    test(nested<5> ," [simple]", 10, 0.1, 0.9);
+    test(nested<5> ," [larger]", 10000000, 0.01, 0.95);
+    test(nested<5> ," [many skipped]", 10000000, 0.2, 0.5);
     test(nested<10>," [few skipped]", 10000000,0.01,0.5);
     test(nested<10>," [only blocks]", 10000000,0.01,1.0);
     test(nested<10>," [20Mx10]", 20000000,0.01,1.0);
-    test(nested<2>," [100Mx2]", 100000000,0.01,1.0);
-    test(nested<1>," [200Mx1]", 200000000,0.01,1.0);
+    test(nested<2> ," [100Mx2]", 100000000,0.01,1.0);
+    test(nested<1> ," [200Mx1]", 200000000,0.01,1.0);
+    test(nested<10> ," [long MI]", 20000000,0.01,0.5);
+    test(multitype," [2/3 levels]", 2000000,8000000,0.01);
     std::cout << "----------------------------------------------\n";
 }
