@@ -448,10 +448,10 @@ int main()
     test(nested<5> ," [many skipped]", 10000000, 0.2, 0.5);
     test(nested<10>," [few skipped]", 10000000,0.01,0.5);
     test(nested<10>," [only blocks]", 10000000,0.01,1.0);
-    test(nested<10>," [20Mx10]", 20000000,0.01,1.0);
-    test(nested<2> ," [100Mx2]", 100000000,0.01,1.0);
-    test(nested<1> ," [200Mx1]", 200000000,0.01,1.0);
+    test(nested<10>," [10Mx10]", 10000000,0.01,1.0);
+    test(nested<2> ," [50Mx2]", 50000000,0.01,1.0);
+    test(nested<1> ," [100Mx1]", 100000000,0.01,1.0);
     test(nested<10> ," [long MI]", 20000000,0.01,0.5);
-    test(multitype," [2/3 levels]", 2000000,8000000,0.01);
+    test(multitype," [2/3 levels]", 5000000,5000000,0.01);
     std::cout << "----------------------------------------------\n";
 }
