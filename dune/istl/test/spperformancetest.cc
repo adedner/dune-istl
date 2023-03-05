@@ -93,7 +93,7 @@ namespace ScalarProductHelper {
     }
 
     template<typename V, typename B>
-    auto dot(const V& a, const V& b, const B& boolVector)
+    auto masked_dot_product(const V& a, const V& b, const B& boolVector)
     {
         double sp(0);
         applyToVector(
@@ -103,19 +103,6 @@ namespace ScalarProductHelper {
                 sp += w?a*b:0.0;
             },
             a, b, boolVector);
-        return sp;
-    }
-
-    template<typename V, typename B>
-    auto dot(const V& a, const V& b)
-    {
-        double sp(0);
-        applyToVector(
-            [&sp](double a, double b)
-            {
-                sp += a*b;
-            },
-            a, b);
         return sp;
     }
 
@@ -212,7 +199,7 @@ std::vector<std::array<double,2>> x {{1,2},{2,3},{3,4},{4,5},{5,6}};
 
 template<typename V, typename B>
 double sp_A (const V & x, const V & y, const B & boolVec) {
-    return Dune::ScalarProductHelper::dot(x, y, boolVec);
+    return Dune::ScalarProductHelper::masked_dot_product(x, y, boolVec);
 }
 
 template<typename V, typename S>
@@ -250,11 +237,11 @@ struct ISTLTypes
         return MultiTypeBlockVector<B1,B2>(b1,b2);
     }
     template<int N>
-    BlockVector<FieldVector<bool,N>> type(const BlockVector<FieldVector<double,N>> &) {}
+    BlockVector<FieldVector<bool,N>> type(const BlockVector<FieldVector<double,N>> &) ;
     template<int N>
-    BlockVector<FieldVector<bool,N>> type(BlockVector<FieldVector<double,N>> &&) {}
-    BlockVector<unsigned char> type(const BlockVector<double> &) {}
-    BlockVector<unsigned char> type(BlockVector<double> &&) {}
+    BlockVector<FieldVector<bool,N>> type(BlockVector<FieldVector<double,N>> &&) ;
+    BlockVector<unsigned char> type(const BlockVector<double> &) ;
+    BlockVector<unsigned char> type(BlockVector<double> &&) ;
 };
 
 struct BitTypes
@@ -270,8 +257,8 @@ struct BitTypes
         return std::make_tuple(b1,b2);
     }
     template<int N>
-    BitSetVector<N> type(const BlockVector<FieldVector<double,N>> &) {}
-    std::vector<bool> type(const BlockVector<double> &) {}
+    BitSetVector<N> type(const BlockVector<FieldVector<double,N>> &) ;
+    std::vector<bool> type(const BlockVector<double> &) ;
 };
 
 /*
@@ -298,14 +285,16 @@ auto generate_basic(bool unbalanced)
     BlockVector<FieldVector<double,2>> x {{1,2},{2,3},{3,4},{4,5},{5,6}};
     /////
     using BoolVecType = decltype(std::declval<TypeProp>().type(x));
-    BoolVecType useBool(5,true);
-    useBool[2][0] = false;
-    useBool[2][1] = false;
-    useBool[3][0] = false;
-    useBool[4][1] = false;
-    // BlockVector<FieldVector<bool,2>> useBool {{1,1},{1,1},{0,0},{0,1},{1,0}};
+    BoolVecType useBool(5,false);
+    useBool[0][0] = true;
+    useBool[0][1] = true;
+    useBool[1][0] = true;
+    useBool[1][1] = true;
+    useBool[3][1] = true;
+    useBool[4][0] = true;
+    //BlockVector<FieldVector<bool,2>> useBool {{1,1},{1,1},{0,0},{0,1},{1,0}};
     if (unbalanced)
-        return std::make_tuple(x, useBool, skipIdx2);
+        return std::make_tuple(x, useBool, skipIdx);
     else
         return std::make_tuple(x, useBool, skipIdx);
 }
@@ -462,6 +451,10 @@ void do_test(std::string name, F && f, Args&&... args)
         flatVectorForEach(useBool,
             [&skipped](auto&& entry, std::size_t offset) { skipped += (entry==false)?1:0; });
 
+    // warmup ...
+    sp_A(x,x,useBool);
+    sp_B(x,x,skipIdx);
+    sp_C(x,x,skipIdx);
     // run performance tests
     Dune::Timer t;
     t.start();
