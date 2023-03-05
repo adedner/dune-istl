@@ -231,9 +231,9 @@ auto sp_C(const V & x, const V & y, const S & skipEntries)
 {
     double sp = x.dot(y); // dot(x,y);
     double skip = 0;
-    ISTL::forEachIndex (skipEntries, y,
-        [&skip](auto & v, auto & mi) { skip += dot(v,v); }
-        );
+    ISTL::forEachIndex (
+        [&skip](auto & v, auto & mi) { skip += dot(v,v); },
+        skipEntries, y);
 
     return sp-skip;
 }

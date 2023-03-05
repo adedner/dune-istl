@@ -68,59 +68,68 @@ namespace Dune
             sufficient to use our helpers.
          */
 
-        /**
-           \brief all a functor f for a list of entries in an ISTL vector
-         */
-        template <class MultiIndex, class Block, class F, std::size_t i = 0>
-        void applyAtIndex (MultiIndex const& mi, Block&& block, F&& f, index_constant<i> = {})
-        {
-            if constexpr(std::is_integral<MultiIndex>{})
+        namespace Impl {
+            /**
+               \brief recursive helper function to call a functor f for a list of entries in an ISTL vector
+            */
+            template <class F, class MultiIndex, std::size_t i, class... Blocks>
+            void applyAtIndex (F&& f, MultiIndex const& mi, index_constant<i>, Blocks&&... blocks)
             {
-                f(block, mi);
-            }
-            else {
-                if constexpr(i < mi.max_size()) {
-                    if (i < mi.size()) {
-                        if constexpr(hasDynamicIndexAccess<Block>{}) {
-                            // access block directly
-                            applyAtIndex(mi,block[mi[i]],f,index_constant<i+1>{});
-                        }
-                        else if constexpr(hasStaticIndexAccess<Block>{}) {
-                            // access block by searching for the static index equal to mi[i]
-                            using Size = decltype(Hybrid::size(block));
-                            return Hybrid::switchCases(std::make_index_sequence<Size::value>{},mi[i],
-                                [&](auto ii) { applyAtIndex(mi,block[ii],f,index_constant<i+1>{}); });
+                if constexpr(std::is_integral<MultiIndex>{})
+                {
+                    f(blocks..., mi);
+                }
+                else {
+                    if constexpr(i < mi.max_size()) {
+                        if (i < mi.size()) {
+                            if constexpr(
+                                std::conjunction_v<hasDynamicIndexAccess<Blocks>...>
+                                ) {
+                                // access block directly
+                                applyAtIndex(f,mi,index_constant<i+1>{},blocks[mi[i]]...);
+                            }
+                            else if constexpr(
+                                std::conjunction_v<hasStaticIndexAccess<Blocks>...>
+                                ) {
+                                // access block by searching for the static index equal to mi[i]
+                                using Size = decltype(Hybrid::size(std::get<0>(std::make_tuple(blocks...))));
+                                return Hybrid::switchCases(std::make_index_sequence<Size::value>{},mi[i],
+                                    [&](auto ii) { applyAtIndex(f,mi,index_constant<i+1>{},blocks[ii]...); });
+                            }
+                            else {
+                                // leaf entry in the container
+                                f(blocks..., mi);
+                            }
                         }
                         else {
-                            // leaf entry in the container
-                            f(block, mi);
+                            // end of multi-index
+                            f(blocks..., mi);
                         }
                     }
                     else {
-                        // end of multi-index
-                        f(block, mi);
+                        // end of multi-index (static condition)
+                        f(blocks..., mi);
                     }
                 }
-                else {
-                    // end of multi-index (static condition)
-                    f(block, mi);
-                }
             }
+        } // end namespace Impl
+
+        /**
+           \brief call a functor f for a list of entries in an ISTL vector or in a set of ISTL vectors
+        */
+        template <class F, class MultiIndex, class... Vectors>
+        void applyAtIndex (F&& f, MultiIndex const& mi, Vectors&&... vectors)
+        {
+            constexpr index_constant<0> level;
+            Impl::applyAtIndex(f,mi,level,vectors...);
         }
 
-        template <class Indices, class Container, class F>
-        void forEachIndex (Indices const& indices, Container&& container, F&& f)
+        template <class F, class Indices, class... Vectors>
+        void forEachIndex (F&& f, Indices const& indices, Vectors&&... vectors)
         {
             for (auto const& index : indices)
-                applyAtIndex(index,container,f);
+                applyAtIndex(f,index,vectors...);
         }
-
-        // template <class Indices, class Container, class F>
-        // void hierarchicForEach (Container&& container, F&& f)
-        // {
-        //     for (auto const& index : indices)
-        //         applyAtIndex(index,container,f);
-        // }
 
     } // end namespace ISTL
 
