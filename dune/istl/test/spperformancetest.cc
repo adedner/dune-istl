@@ -495,6 +495,7 @@ void do_test(std::string name, F f, Args&&... args)
 int main()
 {
     using namespace Dune::Indices;
+    do_test("basic<>" + " [balanced]", generate_basic<>,false);
     test(basic<>," [balanced]",false);
     test(basic<>," [unbalanced]",true);
     test(basic<BitTypes>, " [unbalanced]",true);
