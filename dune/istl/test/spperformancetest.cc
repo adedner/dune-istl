@@ -443,7 +443,7 @@ auto generate_multitype(int N1, int N2,
 }
 
 template<typename F, typename... Args>
-void do_test(std::string name, F && f, Args&&... args)
+void do_test(std::string name, F f, Args&&... args)
 {
     auto [x, useBool, skipIdx] = f(args...);
 
