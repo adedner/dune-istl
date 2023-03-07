@@ -66,8 +66,13 @@ namespace Impl{
     });
   }
 
+  // wrapper class for C-Function Calls in the backend. Choose the right function
+  // depending on the index type parameter used.
+  template <class Index>
+  struct CholmodMethodChooser;
 
-} //namespace Impl
+} // end namespace Impl
+
 
 /** @brief Dune wrapper for SuiteSparse/CHOLMOD solver
   *
@@ -83,6 +88,8 @@ class Cholmod : public InverseOperator<Vector, Vector>
   static_assert(std::is_same_v<Index,int> || std::is_same_v<Index,SuiteSparse_long>,
                 "Index type must be either 'int' or 'SuiteSparse_long'!");
 
+  using CholmodMethod = Impl::CholmodMethodChooser<Index>;
+
 public:
 
   /** @brief Default constructor
@@ -92,10 +99,7 @@ public:
    */
   Cholmod()
   {
-    if (std::is_same_v<Index,int>)
-      cholmod_start(&c_);
-    else
-      cholmod_l_start(&c_);
+    CholmodMethod::start(&c_);
   }
 
   /** @brief Destructor
@@ -105,18 +109,9 @@ public:
    */
   ~Cholmod()
   {
-    if (std::is_same_v<Index,int>)
-    {
-      if (L_)
-        cholmod_free_factor(&L_, &c_);
-      cholmod_finish(&c_);
-    }
-    else
-    {
-      if (L_)
-        cholmod_l_free_factor(&L_, &c_);
-      cholmod_l_finish(&c_);
-    }
+    if (L_)
+      CholmodMethod::free_factor(&L_, &c_);
+    CholmodMethod::finish(&c_);
   }
 
   // forbid copying to avoid freeing memory twice
@@ -163,18 +158,14 @@ public:
     });
 
       // create a cholmod dense object
-    auto b3 = make_cholmod_dense( (std::is_same_v<Index,int>)
-                                  ? cholmod_allocate_dense(L_->n, 1, L_->n, CHOLMOD_REAL, &c_)
-                                  : cholmod_l_allocate_dense(L_->n, 1, L_->n, CHOLMOD_REAL, &c_), &c_);
+    auto b3 = make_cholmod_dense(CholmodMethod::allocate_dense(L_->n, 1, L_->n, CHOLMOD_REAL, &c_), &c_);
 
     // cast because void-ptr
     auto b4 = static_cast<double*>(b3->x);
     std::copy(b2.get(), b2.get() + L_->n, b4);
 
     // solve for a cholmod x object
-    auto x3 = (std::is_same_v<Index,int>)
-      ? make_cholmod_dense(cholmod_solve(CHOLMOD_A, L_, b3.get(), &c_), &c_)
-      : make_cholmod_dense(cholmod_l_solve(CHOLMOD_A, L_, b3.get(), &c_), &c_);
+    auto x3 = make_cholmod_dense(CholmodMethod::solve(CHOLMOD_A, L_, b3.get(), &c_), &c_);
     // cast because void-ptr
     auto xp = static_cast<double*>(x3->x);
 
@@ -256,16 +247,11 @@ public:
     * by DUNE.  So we can just store Mᵀ instead of M (as M = Mᵀ).
     */
     const auto deleter = [c = &this->c_](auto* p) {
-      if (std::is_same_v<Index,int>)
-        cholmod_free_sparse(&p, c);
-      else
-        cholmod_l_free_sparse(&p, c);
+      CholmodMethod::free_sparse(&p, c);
     };
 
-    cholmod_sparse* rawM;
-    if (std::is_same_v<Index,int>)
-    {
-      rawM = cholmod_allocate_sparse(N,             // # rows
+    auto M = std::unique_ptr<cholmod_sparse, decltype(deleter)>(
+      CholmodMethod::allocate_sparse(N,             // # rows
                                      N,             // # cols
                                      nonZeros,      // # of nonzeroes
                                      1,             // indices are sorted ( 1 = true)
@@ -273,22 +259,7 @@ public:
                                      -1,            // stype of matrix ( -1 = consider the lower part only )
                                      CHOLMOD_REAL,  // xtype of matrix ( CHOLMOD_REAL = single array, no complex numbers)
                                      &c_            // cholmod_common ptr
-                                    );
-    }
-    else
-    {
-      rawM = cholmod_l_allocate_sparse(N,             // # rows
-                                       N,             // # cols
-                                       nonZeros,      // # of nonzeroes
-                                       1,             // indices are sorted ( 1 = true)
-                                       1,             // matrix is "packed" ( 1 = true)
-                                       -1,            // stype of matrix ( -1 = consider the lower part only )
-                                       CHOLMOD_REAL,  // xtype of matrix ( CHOLMOD_REAL = single array, no complex numbers)
-                                       &c_            // cholmod_common ptr
-                                      );
-    }
-
-    auto M = std::unique_ptr<cholmod_sparse, decltype(deleter)>(rawM, deleter);
+      ), deleter);
 
     // copy the data of BCRS matrix to Cholmod Sparse matrix
     Index* Ap = static_cast<Index*>(M->p);
@@ -363,16 +334,10 @@ public:
     });
 
     // Now analyse the pattern and optimal row order
-    if (std::is_same_v<Index,int>)
-      L_ = cholmod_analyze(M.get(), &c_);
-    else
-      L_ = cholmod_l_analyze(M.get(), &c_);
+    L_ = CholmodMethod::analyze(M.get(), &c_);
 
     // Do the factorization (this may take some time)
-    if (std::is_same_v<Index,int>)
-      cholmod_factorize(M.get(), L_, &c_);
-    else
-      cholmod_l_factorize(M.get(), L_, &c_);
+    CholmodMethod::factorize(M.get(), L_, &c_);
   }
 
   virtual SolverCategory::Category category() const
@@ -416,10 +381,7 @@ private:
   auto make_cholmod_dense(cholmod_dense* x, cholmod_common* c)
   {
     const auto deleter = [c](auto* p) {
-      if (std::is_same_v<Index,int>)
-        cholmod_free_dense(&p, c);
-      else
-        cholmod_l_free_dense(&p, c);
+      CholmodMethod::free_dense(&p, c);
     };
     return std::unique_ptr<cholmod_dense, decltype(deleter)>(x, deleter);
   }
@@ -462,6 +424,137 @@ private:
     }
   };
   DUNE_REGISTER_DIRECT_SOLVER("cholmod", Dune::CholmodCreator());
+
+
+namespace Impl {
+
+  template <>
+  struct CholmodMethodChooser<int>
+  {
+    [[nodiscard]]
+    static cholmod_dense* allocate_dense(size_t nrow, size_t ncol, size_t d, int xtype, cholmod_common *c)
+    {
+      return ::cholmod_allocate_dense(nrow,ncol,d,xtype,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_sparse* allocate_sparse(size_t nrow, size_t ncol, size_t nzmax, int sorted, int packed, int stype, int xtype, cholmod_common *c)
+    {
+      return ::cholmod_allocate_sparse(nrow,ncol,nzmax,sorted,packed,stype,xtype,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_factor* analyze(cholmod_sparse *A, cholmod_common *c)
+    {
+      return ::cholmod_analyze(A,c);
+    }
+
+    static int defaults(cholmod_common *c)
+    {
+      return ::cholmod_defaults(c);
+    }
+
+    static int factorize(cholmod_sparse *A, cholmod_factor *L, cholmod_common *c)
+    {
+      return ::cholmod_factorize(A,L,c);
+    }
+
+    static int finish(cholmod_common *c)
+    {
+      return ::cholmod_finish(c);
+    }
+
+    static int free_dense (cholmod_dense **X, cholmod_common *c)
+    {
+      return ::cholmod_free_dense(X,c);
+    }
+
+    static int free_factor(cholmod_factor **L, cholmod_common *c)
+    {
+      return ::cholmod_free_factor(L,c);
+    }
+
+    static int free_sparse(cholmod_sparse **A, cholmod_common *c)
+    {
+      return ::cholmod_free_sparse(A,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_dense* solve(int sys, cholmod_factor *L, cholmod_dense *B, cholmod_common *c)
+    {
+      return ::cholmod_solve(sys,L,B,c);
+    }
+
+    static int start(cholmod_common *c)
+    {
+      return ::cholmod_start(c);
+    }
+  };
+
+  template <>
+  struct CholmodMethodChooser<SuiteSparse_long>
+  {
+    [[nodiscard]]
+    static cholmod_dense* allocate_dense(size_t nrow, size_t ncol, size_t d, int xtype, cholmod_common *c)
+    {
+      return ::cholmod_l_allocate_dense(nrow,ncol,d,xtype,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_sparse* allocate_sparse(size_t nrow, size_t ncol, size_t nzmax, int sorted, int packed, int stype, int xtype, cholmod_common *c)
+    {
+      return ::cholmod_l_allocate_sparse(nrow,ncol,nzmax,sorted,packed,stype,xtype,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_factor* analyze(cholmod_sparse *A, cholmod_common *c)
+    {
+      return ::cholmod_l_analyze(A,c);
+    }
+
+    static int defaults(cholmod_common *c)
+    {
+      return ::cholmod_l_defaults(c);
+    }
+
+    static int factorize(cholmod_sparse *A, cholmod_factor *L, cholmod_common *c)
+    {
+      return ::cholmod_l_factorize(A,L,c);
+    }
+
+    static int finish(cholmod_common *c)
+    {
+      return ::cholmod_l_finish(c);
+    }
+
+    static int free_dense (cholmod_dense **X, cholmod_common *c)
+    {
+      return ::cholmod_l_free_dense(X,c);
+    }
+
+    static int free_factor (cholmod_factor **L, cholmod_common *c)
+    {
+      return ::cholmod_l_free_factor(L,c);
+    }
+
+    static int free_sparse(cholmod_sparse **A, cholmod_common *c)
+    {
+      return ::cholmod_l_free_sparse(A,c);
+    }
+
+    [[nodiscard]]
+    static cholmod_dense* solve(int sys, cholmod_factor *L, cholmod_dense *B, cholmod_common *c)
+    {
+      return ::cholmod_l_solve(sys,L,B,c);
+    }
+
+    static int start(cholmod_common *c)
+    {
+      return ::cholmod_l_start(c);
+    }
+  };
+
+} // end namespace Impl
 
 } /* namespace Dune */
 
