@@ -121,14 +121,14 @@ namespace Dune
         void applyAtIndex (F&& f, MultiIndex const& mi, Vectors&&... vectors)
         {
             constexpr index_constant<0> level;
-            Impl::applyAtIndex(f,mi,level,vectors...);
+            Impl::applyAtIndex(f,mi,level,std::forward<Vectors>(vectors)...);
         }
 
         template <class F, class Indices, class... Vectors>
         void forEachIndex (F&& f, Indices const& indices, Vectors&&... vectors)
         {
             for (auto const& index : indices)
-                applyAtIndex(f,index,vectors...);
+                applyAtIndex(f,index,std::forward<Vectors>(vectors)...);
         }
 
     } // end namespace ISTL
