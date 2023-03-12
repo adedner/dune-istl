@@ -6,6 +6,11 @@
 #include <type_traits>
 #include <dune/common/hybridutilities.hh>
 
+// these are needed to specialize
+#include <array>
+#include <dune/common/reservedvector.hh>
+#include <dune/common/fvector.hh>
+
 /** \file File providing helper functions to work in ISTL containers using multi-indices
  *
  */
@@ -69,6 +74,23 @@ namespace Dune
          */
 
         namespace Impl {
+            // helper to get the max size and work around issues with non-const max_size
+            template<typename C>
+            struct maxSize : public std::integral_constant<unsigned int, 99> {}; // in an case we have to make sure that the recursion ends
+
+            // specialization for std::array, ReservedVector and FieldVector
+            template<typename T, std::size_t N>
+            struct maxSize<std::array<T,N>> : public std::integral_constant<unsigned int, N> {};
+
+            template<typename T, int n>
+            struct maxSize<Dune::ReservedVector<T,n>> : public std::integral_constant<unsigned int, n> {};
+
+            template<typename T, int n>
+            struct maxSize<Dune::FieldVector<T,n>> : public std::integral_constant<unsigned int, n> {};
+
+            template<class C>
+            inline constexpr unsigned int maxSize_v = maxSize<C>::value;
+
             /**
                \brief recursive helper function to call a functor f for a list of entries in an ISTL vector
             */
@@ -80,7 +102,7 @@ namespace Dune
                     f(blocks..., mi);
                 }
                 else {
-                    if constexpr(i < mi.max_size()) {
+                    if constexpr(i < maxSize_v<MultiIndex>) {
                         if (i < mi.size()) {
                             if constexpr(
                                 std::conjunction_v<hasDynamicIndexAccess<Blocks>...>
