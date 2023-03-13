@@ -281,6 +281,11 @@ struct BitTypes
  */
 template<typename TypeProp = ISTLTypes>
 auto generate_basic(bool unbalanced)
+    -> std::tuple<
+    BlockVector<FieldVector<double,2>>,
+    decltype(std::declval<TypeProp>().type(std::declval<BlockVector<FieldVector<double,2>>>())),
+    std::vector<ReservedVector<int,2>>
+    >
 {
     std::vector<ReservedVector<int,2>> skipIdx {{2,0},{2,1},{3,0},{4,1}};
     std::vector<ReservedVector<int,2>> skipIdx2 {{2},{3,0},{4,1}};
@@ -305,6 +310,12 @@ template<std::size_t B, typename TypeProp = ISTLTypes>
 auto generate_nested(int N,
     double propability,
     double propability2)
+    ->
+    std::tuple<
+    BlockVector<FieldVector<double,B>>,
+    decltype(std::declval<TypeProp>().type(std::declval<BlockVector<FieldVector<double,B>>>())),
+    std::vector<ReservedVector<unsigned int,2>>
+    >
 {
     // generate large vector
     BlockVector<FieldVector<double,B>> x(N);
@@ -366,6 +377,11 @@ template<std::size_t B>
 auto generate_nested_bitVec(int N,
     double propability,
     double propability2)
+    -> std::tuple<
+    BlockVector<FieldVector<double,B>>,
+    decltype(std::declval<BitTypes>().type(std::declval<BlockVector<FieldVector<double,B>>>())),
+    std::vector<ReservedVector<unsigned int,2>>
+    >
 {
     return generate_nested<B,BitTypes>(N,propability,propability2);
 }
@@ -373,6 +389,11 @@ auto generate_nested_bitVec(int N,
 template<typename TypeProp = ISTLTypes>
 auto generate_flat(int N,
     double propability)
+    -> std::tuple<
+    BlockVector<double>,
+    decltype(std::declval<TypeProp>().type(std::declval<BlockVector<double>>())),
+    std::vector<ReservedVector<unsigned int,1>>
+    >
 {
     // generate large vector
     BlockVector<double> x(N);
@@ -404,7 +425,14 @@ auto generate_flat(int N,
 template<typename TypeProp = ISTLTypes>
 auto generate_multitype(int N1, int N2,
     double propability = 0.01
-    )
+    ) ->
+    std::tuple<MultiTypeBlockVector<
+        BlockVector<double>,
+        BlockVector<FieldVector<double,3>>>,
+               decltype(std::declval<TypeProp>().type(std::declval<MultiTypeBlockVector<
+                                                                       BlockVector<double>,
+                                                                       BlockVector<FieldVector<double,3>>>>())),
+               std::vector<Dune::ReservedVector<unsigned int,3>>>
 {
     // generate a tailor-hood like structure
     auto [x1, useBool1, skipIdx1] = generate_flat<TypeProp>(N1,propability);
@@ -495,8 +523,6 @@ void do_test(std::string name, F f, Args&&... args)
 int main()
 {
     using namespace Dune::Indices;
-    generate_basic<>(false);
-    do_test(std::string("basic<>") + " [balanced]", generate_basic<>,false);
     test(basic<>," [balanced]",false);
     test(basic<>," [unbalanced]",true);
     test(basic<BitTypes>, " [unbalanced]",true);
