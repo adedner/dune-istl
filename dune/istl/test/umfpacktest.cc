@@ -9,6 +9,8 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/timer.hh>
+#include <dune/common/alignedallocator.hh>
+
 #include <dune/istl/bvector.hh>
 #include <dune/istl/umfpack.hh>
 
@@ -34,14 +36,14 @@ void runUMFPack(std::size_t N)
 
   watch.reset();
 
-  Dune::UMFPack<Matrix> solver(mat,1);
+  Dune::UMFPack<Matrix, Vector, Vector> solver(mat,1);
 
   Dune::InverseOperatorResult res;
 
   solver.apply(x, b, res);
   solver.free();
 
-  Dune::UMFPack<Matrix> solver1;
+  Dune::UMFPack<Matrix, Vector, Vector> solver1;
 
   std::set<std::size_t> mrs;
   for(std::size_t s=0; s < N/2; ++s)
@@ -87,6 +89,13 @@ int main(int argc, char** argv) try
   {
     using Matrix = Dune::BCRSMatrix<Dune::FieldMatrix<double,2,2> >;
     using Vector = Dune::BlockVector<Dune::FieldVector<double,2> >;
+    runUMFPack<Matrix,Vector>(N);
+  }
+
+  // test with different vector type
+  {
+    using Matrix = Dune::BCRSMatrix<double>;
+    using Vector = Dune::BlockVector<double, Dune::AlignedAllocator<double>>;
     runUMFPack<Matrix,Vector>(N);
   }
 
