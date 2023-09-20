@@ -40,7 +40,8 @@ bool test()
 
     // fill matrix with external method
     BCRSMatrix<FieldMatrix<double,bs,bs>> A;
-    setupLaplacian(A, N);
+    // no regularization, A may be singular!
+    setupLaplacian(A, N, 0.0);
 
     BlockVector<FieldVector<double,bs>> b,x;
     b.resize(A.N());
