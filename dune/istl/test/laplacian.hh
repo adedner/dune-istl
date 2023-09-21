@@ -4,6 +4,9 @@
 // vi: set et ts=4 sw=2 sts=2:
 #ifndef LAPLACIAN_HH
 #define LAPLACIAN_HH
+
+#include <optional>
+
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/scalarmatrixview.hh>
@@ -44,9 +47,13 @@ void setupSparsityPattern(Dune::BCRSMatrix<B,Alloc>& A, int N)
  * \param N Number of grid nodes per direction
  * \param reg (optional) Regularization added to the diagonal to ensure a good condition number
  */
-template<class B, class Alloc, class field_type = typename Dune::BCRSMatrix<B,Alloc>::field_type>
-void setupLaplacian(Dune::BCRSMatrix<B,Alloc>& A, int N, field_type reg = 0.0)
+template<class B, class Alloc>
+void setupLaplacian(Dune::BCRSMatrix<B,Alloc>& A,
+                    int N,
+                    std::optional<typename Dune::BCRSMatrix<B,Alloc>::field_type> reg = {} )
 {
+  using field_type = typename Dune::BCRSMatrix<B,Alloc>::field_type;
+
   setupSparsityPattern(A,N);
 
   B diagonal(static_cast<field_type>(0)), bone(static_cast<field_type>(0));
@@ -81,7 +88,7 @@ void setupLaplacian(Dune::BCRSMatrix<B,Alloc>& A, int N, field_type reg = 0.0)
   }
 
   // add regularization to the diagonal
-  if ( reg != field_type(0.0) )
+  if ( reg.has_value() )
   {
     for ( auto rowIt=A.begin(); rowIt!=A.end(); rowIt++ )
     {
@@ -92,7 +99,7 @@ void setupLaplacian(Dune::BCRSMatrix<B,Alloc>& A, int N, field_type reg = 0.0)
           auto&& block = Dune::Impl::asMatrix(*entryIt);
           for ( auto it=block.begin(); it!=block.end(); ++it )
           {
-            (*it)[it.index()] += reg;
+            (*it)[it.index()] += reg.value();
           }
         }
       }
