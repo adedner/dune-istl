@@ -5,6 +5,8 @@ SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 
 # Master (will become release 2.10)
 
+- `setupLaplacian` has now an optional diagonal regularization parameter.
+
 - `UMFPACK` is extended to arbitrary blocked matrix structures. This includes `MultiTypeBlockMatrix`. The external interface is unchanged.
   However, internally the `BCCSMatrixInitializer` is replaced by direct calls of `flatMatrixForEach` similar to `Cholmod`. This requires a
   compatible vector field of "ignored" degrees of freedom. The method `setSubMatrix` with a top-level index set is preserved for compatibility.
