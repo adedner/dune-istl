@@ -21,7 +21,7 @@ list(APPEND CMAKE_MODULE_PATH ${dune-common_MODULE_PATH}
 include(DuneMacros)
 
 # start a dune project with information from dune.module
-dune_project()
+dune_project(duneistl INTERFACE)
 
 # create library target and export it as Dune::ISTL
 dune_add_library(duneistl INTERFACE
