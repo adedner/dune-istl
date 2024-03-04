@@ -19,7 +19,8 @@ namespace Dune
     // ----------------------
 
     template< class LinearOperator, class... options >
-    inline static void registerLinearOperator ( pybind11::class_< LinearOperator, options... > cls )
+    inline static void registerLinearOperator ( pybind11::module,
+                                                pybind11::class_< LinearOperator, options... > cls )
     {
       typedef typename LinearOperator::field_type field_type;
       typedef typename LinearOperator::domain_type domain_type;

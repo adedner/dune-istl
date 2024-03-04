@@ -55,6 +55,8 @@ SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 
 - Solvers are more robust if used with multiple right-hand sides and one lane starts with the exact solution.
 
+- Added python bindings for the solverfactory
+
 - Added a function to write nested matrices as SVG objects: `writeSVGMatrix(...)`
 
 - `MultiTypeBlockVector` uses now `std::common_type` of the entries for the `field_type`. The old `double`
