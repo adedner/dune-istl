@@ -314,11 +314,11 @@ namespace Dune
      *
      * ParameterTree Key | Meaning
      * ------------------|------------
-     * verbose           | The verbosity level. default=false
+     * verbosity         | The verbosity level. default=false
      * reuseVector       | Reuse initially allocated vectors in apply. default=true
     */
     SuperLU(const Matrix& matrix, const ParameterTree& config)
-      : SuperLU(matrix, config.get<bool>("verbose", false), config.get<bool>("reuseVector", true))
+      : SuperLU(matrix, config.get<int>("verbosity", 0), config.get<bool>("reuseVector", true))
     {}
 
     /**
