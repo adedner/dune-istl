@@ -9,6 +9,7 @@ from ._istl import *
 
 from dune.generator.generator import SimpleGenerator
 from dune.common.hashit import hashIt
+from dune.generator import Constructor
 generator = SimpleGenerator("BCRSMatrix","Dune::Python")
 generatorvec = SimpleGenerator("BlockVector","Dune::Python")
 generatormatrixindexset = SimpleGenerator("MatrixIndexSet","Dune::Python")
@@ -71,3 +72,27 @@ def blockVector(size, blockSize=1):
     includes = ["dune/istl/bvector.hh"]
     # todo: provide other constructors
     return loadvec(includes, typeName).BlockVector(size)
+
+def matrixAdapter(mat, u, v = None):
+    matType = mat.cppTypeName
+    domType = u.cppTypeName
+    if v is None:
+        ranType = domType
+    else:
+        ranType = v.cppTypeName
+    typeName = "Dune::MatrixAdapter<"+matType+","+domType+","+ranType+">"
+    includes = {"dune/istl/operators.hh", *mat.cppIncludes, *u.cppIncludes}
+    if v is not None:
+        includes += v.cppIncludes
+    ctor = Constructor(["const "+matType+"& mat"], ["return new DuneType(mat);"], ['"matrix"_a'])
+    gen = SimpleGenerator("LinearOperator", "Dune::Python")
+    typeHash = "matrixadapter_"+hashIt(typeName)
+    return gen.load(list(includes), typeName, typeHash, ctor, holder="std::shared_ptr").LinearOperator(mat)
+
+def getSolverFromFactory(op, config, includes = {}):
+    operatorType = op.cppTypeName
+    typeName = "Dune::SolverFactory< " + operatorType + " >"
+    includes = ["dune/python/istl/solverfactory.hh", *includes]
+    typeHash = "solverfactory_"+hashIt([typeName, *includes]) # add includes to the hash to enforce rebuild if custom includes are added
+    gen = SimpleGenerator("SolverFactory", "Dune::Python")
+    return gen.load(includes, typeName, typeHash).SolverFactory.get(op, config)
