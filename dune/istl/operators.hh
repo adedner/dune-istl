@@ -116,9 +116,6 @@ namespace Dune {
 
     //! get matrix via *
     virtual const M& getmat () const = 0;
-
-    //! every abstract base class has a virtual destructor
-    virtual ~AssembledLinearOperator () {}
   };
 
 
