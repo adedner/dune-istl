@@ -91,5 +91,10 @@ int main()
   suite.check(v6.size()==20, "Check size of moved-constructed object");
   suite.check(v6[0].size() == 8, "Check if blocksize of move constructed vector survived");
 
+  // Perform tests with a bool vector entry
+  VariableBlockVector<bool> v7(10);
+  testHomogeneousRandomAccessContainer(v7);
+  Dune::testConstructibility<VariableBlockVector<bool> >();
+
   return suite.exit();
 }

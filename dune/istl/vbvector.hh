@@ -54,9 +54,6 @@ namespace Dune {
     // data-structure holding the windows (but not the actual data)
     using VectorWindows = std::vector<window_type, typename std::allocator_traits<A>::template rebind_alloc<window_type>>;
 
-    // block type bool is not supported since std::vector<bool> is used for storage
-    static_assert(not std::is_same_v<B,bool>, "Block type 'bool' not supported by VariableBlockVector.");
-
   public:
 
     //===== type definitions and constants
@@ -545,7 +542,7 @@ namespace Dune {
     }
 
     VectorWindows block = {}; // vector of blocks pointing to the array in the base class
-    std::vector<B, A> storage_ = {};
+    Dune::Vector<B, A> storage_ = {};
     bool initialized = false; // true if vector has been initialized
   };
 

@@ -225,6 +225,8 @@ int main()
   ret += testVector<double>();
   ret += testVector<std::complex<double> >();
 
+  ret += testVector<bool>();
+
   testCapacity();
 
   return ret;

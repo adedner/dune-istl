@@ -22,6 +22,7 @@
 #include <dune/common/promotiontraits.hh>
 #include <dune/common/typetraits.hh>
 #include <dune/common/scalarvectorview.hh>
+#include <dune/common/vector.hh>
 
 #include <dune/istl/blocklevel.hh>
 
@@ -560,7 +561,7 @@ namespace Imp {
       this->n = storage_.size();
     }
 
-    std::vector<B, A> storage_;
+    Dune::Vector<B, A> storage_;
   };
 
   /** @} */
