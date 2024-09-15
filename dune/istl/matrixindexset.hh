@@ -193,7 +193,8 @@ namespace Dune {
 
       for (size_type row=0; row<rows_; row++) {
         std::visit([&](const auto& rowIndices) {
-          matrix.setIndicesNoSort(row, rowIndices.begin(), rowIndices.end());
+          for(size_type col : rowIndices)
+             matrix.addindex(row, col);
         }, indices_[row]);
       }
 
