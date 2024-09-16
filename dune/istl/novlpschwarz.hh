@@ -123,6 +123,12 @@ namespace Dune {
       return *_A_;
     }
 
+    //! get underlying shared pointer of the matrix
+    std::shared_ptr<const M> getmatptr () const override
+    {
+      return _A_;
+    }
+
     void novlp_op_apply (const X& x, Y& y, field_type alpha) const
     {
       //get index sets
@@ -232,7 +238,7 @@ namespace Dune {
     }
 
     //! Category of the linear operator (see SolverCategory::Category)
-    virtual SolverCategory::Category category() const
+    SolverCategory::Category category() const override
     {
       return SolverCategory::nonoverlapping;
     }

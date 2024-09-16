@@ -118,6 +118,9 @@ namespace Dune {
 
     //! get reference to matrix
     virtual const M& getmat () const = 0;
+
+    //! get underlying shared pointer of the matrix
+    virtual std::shared_ptr<const M> getmatptr () const = 0;
   };
 
 
@@ -163,6 +166,12 @@ namespace Dune {
     const M& getmat () const override
     {
       return *_A_;
+    }
+
+    //! get underlying shared pointer of the matrix
+    std::shared_ptr<const M> getmatptr () const override
+    {
+      return _A_;
     }
 
     //! Category of the solver (see SolverCategory::Category)

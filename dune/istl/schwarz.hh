@@ -135,6 +135,12 @@ namespace Dune {
       return *_A_;
     }
 
+    //! get underlying shared pointer of the matrix
+    std::shared_ptr<const matrix_type> getmatptr () const override
+    {
+      return _A_;
+    }
+
     //! Category of the linear operator (see SolverCategory::Category)
     virtual SolverCategory::Category category() const
     {
