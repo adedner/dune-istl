@@ -130,7 +130,7 @@ namespace Dune {
     }
 
     //! get the sequential assembled linear operator.
-    virtual const matrix_type& getmat () const
+    const matrix_type& getmat () const override
     {
       return *_A_;
     }
