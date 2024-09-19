@@ -285,15 +285,15 @@ namespace Dune {
      * (and use a lot of memory).
      *
      *  @param matrix the matrix to solve for
-     *  @param verbose [0..2] set the verbosity level, defaults to 0
+     *  @param verbosity [0..2] set the verbosity level, defaults to 0
      */
-    UMFPack(const Matrix& matrix, int verbose=0) : matrixIsLoaded_(false)
+    UMFPack(const Matrix& matrix, int verbosity=0) : matrixIsLoaded_(false)
     {
       //check whether T is a supported type
       static_assert((std::is_same<T,double>::value) || (std::is_same<T,std::complex<double> >::value),
                     "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
       Caller::defaults(UMF_Control);
-      setVerbosity(verbose);
+      setVerbosity(verbosity);
       setMatrix(matrix);
     }
 
@@ -303,15 +303,15 @@ namespace Dune {
      * (and use a lot of memory).
      *
      * @param matrix the matrix to solve for
-     * @param verbose [0..2] set the verbosity level, defaults to 0
+     * @param verbosity [0..2] set the verbosity level, defaults to 0
      */
-    UMFPack(const Matrix& matrix, int verbose, bool) : matrixIsLoaded_(false)
+    UMFPack(const Matrix& matrix, int verbosity, bool) : matrixIsLoaded_(false)
     {
       //check whether T is a supported type
       static_assert((std::is_same<T,double>::value) || (std::is_same<T,std::complex<double> >::value),
                     "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
       Caller::defaults(UMF_Control);
-      setVerbosity(verbose);
+      setVerbosity(verbosity);
       setMatrix(matrix);
     }
 
@@ -322,10 +322,10 @@ namespace Dune {
      *
      * ParameterTree Key | Meaning
      * ------------------|------------
-     * verbose           | The verbosity level. default=0
+     * verbosity         | The verbosity level. default=0
     */
     UMFPack(const Matrix& mat_, const ParameterTree& config)
-      : UMFPack(mat_, config.get<int>("verbose", 0))
+      : UMFPack(mat_, config.get<int>("verbosity", 0))
     {}
 
     /** @brief default constructor
@@ -341,20 +341,20 @@ namespace Dune {
     /** @brief Try loading a decomposition from file and do a decomposition if unsuccessful
      * @param mat_ the matrix to decompose when no decoposition file found
      * @param file the decomposition file
-     * @param verbose the verbosity level
+     * @param verbosity the verbosity level
      *
      * Use saveDecomposition(char* file) for manually storing a decomposition. This constructor
      * will decompose mat_ and store the result to file if no file wasn't found in the first place.
      * Thus, if you always use this you will only compute the decomposition once (and when you manually
      * deleted the decomposition file).
      */
-    UMFPack(const Matrix& mat_, const char* file, int verbose=0)
+    UMFPack(const Matrix& mat_, const char* file, int verbosity=0)
     {
       //check whether T is a supported type
       static_assert((std::is_same<T,double>::value) || (std::is_same<T,std::complex<double> >::value),
                     "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
       Caller::defaults(UMF_Control);
-      setVerbosity(verbose);
+      setVerbosity(verbosity);
       int errcode = Caller::load_numeric(&UMF_Numeric, const_cast<char*>(file));
       if ((errcode == UMFPACK_ERROR_out_of_memory) || (errcode == UMFPACK_ERROR_file_IO))
       {
@@ -371,11 +371,11 @@ namespace Dune {
 
     /** @brief try loading a decomposition from file
      * @param file the decomposition file
-     * @param verbose the verbosity level
+     * @param verbosity the verbosity level
      * @throws Dune::Exception When not being able to load the file. Does not need knowledge of the
      * actual matrix!
      */
-    UMFPack(const char* file, int verbose=0)
+    UMFPack(const char* file, int verbosity=0)
     {
       //check whether T is a supported type
       static_assert((std::is_same<T,double>::value) || (std::is_same<T,std::complex<double> >::value),
@@ -388,7 +388,7 @@ namespace Dune {
         DUNE_THROW(Dune::Exception, "IO error while loading UMFPack decomposition");
       matrixIsLoaded_ = true;
       std::cout << "UMFPack decomposition successfully loaded from " << file << std::endl;
-      setVerbosity(verbose);
+      setVerbosity(verbosity);
     }
 
     virtual ~UMFPack()
@@ -808,8 +808,8 @@ namespace Dune {
     operator() (TL /*tl*/, const M& mat, const Dune::ParameterTree& config,
       std::enable_if_t<isValidBlock<TL, M>::value,int> = 0) const
     {
-      int verbose = config.get("verbose", 0);
-      return std::make_shared<Dune::UMFPack<M>>(mat,verbose);
+      int verbosity = config.get("verbosity", 0);
+      return std::make_shared<Dune::UMFPack<M>>(mat,verbosity);
     }
 
     // second version with SFINAE to validate the template parameters of UMFPack
