@@ -45,6 +45,9 @@ namespace Dune{
   namespace {
     struct PreconditionerTag {};
     struct SolverTag {};
+    // iterative and direct solvers can now be handled in a unified way
+    using IterativeSolverTag = SolverTag;
+    using DirectSolverTag = SolverTag;
   }
 
   //! This exception is thrown if the requested solver or preconditioner needs an assembled matrix
