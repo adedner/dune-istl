@@ -254,7 +254,6 @@ int main(int argc, char** argv) try
   // Set up a variety of solvers, just to make sure they compile
   MatrixAdapter<CM_BCRS,TestVector,TestVector> op(A);             // make linear operator from A
   SeqSOR<CM_BCRS,TestVector,TestVector,2> sor(A,1,1.9520932);        // SOR preconditioner
-  SeqSSOR<CM_BCRS,TestVector,TestVector,2> ssor(A,1,1.0);      // SSOR preconditioner
   InverseOperatorResult r;
 
   // Solve system using a Gauss-Seidel method
@@ -270,6 +269,15 @@ int main(int argc, char** argv) try
   {
     SeqJac<CM_BCRS,TestVector,TestVector,2> jac(A,1,1);                // Jacobi preconditioner
     CGSolver<TestVector> cgSolver(op,jac,1E-4,18000,2);           // an inverse operator
+
+    x = 1;
+    cgSolver.apply(x,b,r);
+  }
+
+  // Solve system using a CG method with a SSOR preconditioner
+  {
+    SeqSSOR<CM_BCRS,TestVector,TestVector,2> ssor(A,1,1);              // SSOR preconditioner
+    CGSolver<TestVector> cgSolver(op,ssor,1E-4,18000,2);           // an inverse operator
 
     x = 1;
     cgSolver.apply(x,b,r);
