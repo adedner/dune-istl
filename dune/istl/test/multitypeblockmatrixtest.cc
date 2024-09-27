@@ -12,6 +12,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/indices.hh>
+#include <dune/common/test/testsuite.hh>
 
 #include <dune/istl/matrix.hh>
 #include <dune/istl/bvector.hh>
@@ -147,6 +148,9 @@ void testInterfaceMethods()
 
 int main(int argc, char** argv) try
 {
+
+  Dune::TestSuite testSuite("MultiTypeBlockMatrix");
+
   // Run the standard tests for the dune-istl matrix interface
   testInterfaceMethods();
 
@@ -263,6 +267,8 @@ int main(int argc, char** argv) try
 
     x = 1;
     loop.apply(x,b,r);
+
+    testSuite.check(r.converged, "Gauss-Seidel solver");
   }
 
   // Solve system using a CG method with a Jacobi preconditioner
@@ -272,6 +278,8 @@ int main(int argc, char** argv) try
 
     x = 1;
     cgSolver.apply(x,b,r);
+
+    testSuite.check(r.converged, "Jacobi-preconditioned CG solver");
   }
 
   // Solve system using a CG method with a SSOR preconditioner
@@ -281,6 +289,8 @@ int main(int argc, char** argv) try
 
     x = 1;
     cgSolver.apply(x,b,r);
+
+    testSuite.check(r.converged, "SSOR-preconditioned CG solver");
   }
 
   // Solve system using a GMRes solver without preconditioner at all
@@ -298,12 +308,14 @@ int main(int argc, char** argv) try
 
     x = 1;
     gmres.apply(x, b, r);
+
+    testSuite.check(r.converged, "Unpreconditioned GMRes solver");
   }
 
   printvector(std::cout,x[_0],"solution x1","entry",11,9,1);
   printvector(std::cout,x[_1],"solution x2","entry",11,9,1);
 
-  return 0;
+  return testSuite.exit();
 }
 catch (Dune::Exception& e)
 {
