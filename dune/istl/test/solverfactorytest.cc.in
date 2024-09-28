@@ -37,6 +37,7 @@
 #include <dune/istl/paamg/test/anisotropic.hh>
 
 using Vector = Dune::BlockVector<@BLOCK@>;
+using MultiTypeVector = Dune::MultiTypeBlockVector<Vector,Vector>;
 
 template<class V>
 struct MatrixBlock{
@@ -47,6 +48,9 @@ struct MatrixBlock<Dune::FieldVector<T,n>>{
   typedef Dune::FieldMatrix<Dune::Simd::Scalar<T>,n,n> type;
 };
 using Matrix = Dune::BCRSMatrix<typename MatrixBlock<@BLOCK@>::type>;
+
+using Row = Dune::MultiTypeBlockVector<Matrix,Matrix>;
+using MultiTypeMatrix = Dune::MultiTypeBlockMatrix<Row,Row>;
 
 template<class Comm>
 void testSeq(const Dune::ParameterTree& config, Comm c){
@@ -175,6 +179,7 @@ int main(int argc, char** argv){
   Dune::ParameterTreeParser::readOptions(argc, argv, config);
 
   Dune::initSolverFactories<Dune::MatrixAdapter<Matrix,Vector,Vector>>();
+  Dune::initSolverFactories<Dune::MatrixAdapter<MultiTypeMatrix,MultiTypeVector,MultiTypeVector>>();
   using Communication = Dune::OwnerOverlapCopyCommunication<int>;
   Dune::initSolverFactories<Dune::OverlappingSchwarzOperator<Matrix,Vector,Vector,Communication>>();
   Dune::initSolverFactories<Dune::NonoverlappingSchwarzOperator<Matrix,Vector,Vector,Communication>>();
@@ -183,8 +188,11 @@ int main(int argc, char** argv){
   testSeq(config.sub("sequential"), mpihelper.getCommunication());
   std::cout << std::endl << " Testing overlapping tests... " << std::endl;
   testOverlapping(config.sub("overlapping"), mpihelper.getCommunication());
+
   // Still need to implement proper discretization for non-overlapping
   // std::cout << std::endl << " Testing nonoverlapping tests... " << std::endl;
   // testNonoverlapping(config.sub("overlapping"), mpihelper.getCommunication());
+
+  // MultiTypeMatrix not yet tested, need to implement matching discretization
   return 0;
 }
