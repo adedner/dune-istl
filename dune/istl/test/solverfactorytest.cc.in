@@ -5,6 +5,7 @@
 
 // If we test with simd we need to deactivate the direct solver.
 // In that case we use a define to do this in the next line.
+# 9 "/home/christi/Uni/Dune/istl/dune/istl/test/solverfactorytest.cc.in"
 @DEFINE_DEACTIVATE_AMG_DIRECTSOLVER@
 
 #include <dune/common/parallel/mpihelper.hh>
