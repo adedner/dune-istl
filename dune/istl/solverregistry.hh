@@ -8,6 +8,7 @@
 
 #include <dune/istl/common/registry.hh>
 #include <dune/istl/preconditioner.hh>
+#include <dune/istl/blocklevel.hh>
 #include <dune/istl/solver.hh>
 
 namespace Dune::Impl {
@@ -53,7 +54,7 @@ namespace Dune{
   //! This exception is thrown if the requested solver or preconditioner needs an assembled matrix
   class NoAssembledOperator : public InvalidStateException{};
 
-  template<template<class,class,class,int>class Preconditioner, int blockLevel=1>
+  template<template<class,class,class,int>class Preconditioner>
   auto defaultPreconditionerBlockLevelCreator(){
     return [](auto opInfo, const auto& linearOperator, const Dune::ParameterTree& config)
     {
@@ -64,7 +65,7 @@ namespace Dune{
       std::shared_ptr<Dune::Preconditioner<Domain, Range>> preconditioner;
       if constexpr (OpInfo::isAssembled){
         const auto& A = opInfo.getAssembledOpOrThrow(linearOperator);
-        // const Matrix& matrix = A->getmat();
+        constexpr int blockLevel = Dune::blockLevel<Matrix>()-1;
         preconditioner
           = std::make_shared<Preconditioner<Matrix, Domain, Range, blockLevel>>(A, config);
       }else{
