@@ -62,6 +62,11 @@ namespace Dune{
       >> : std::true_type {};
     template<class OpTraits, class VectorChooser>
     inline constexpr bool isValidBlock_v = isValidBlock<OpTraits, VectorChooser>::value;
+
+    template<class M> struct isBCRSMatrix : std::false_type {};
+    template<class B> struct isBCRSMatrix<BCRSMatrix<B>> : std::true_type {};
+    template<class M>
+    inline constexpr bool isBCRSMatrix_v = isBCRSMatrix<M>::value;
   }
 
   //! This exception is thrown if the requested solver or preconditioner needs an assembled matrix
@@ -102,6 +107,59 @@ namespace Dune{
         // const Matrix& matrix = A->getmat();
         preconditioner
           = std::make_shared<Preconditioner<Matrix, Domain, Range>>(A, config);
+      }else{
+        DUNE_THROW(NoAssembledOperator, "Could not obtain matrix from operator. Please pass in an AssembledLinearOperator.");
+      }
+      return preconditioner;
+    };
+  }
+
+  template<template<class,class,class,int>class Preconditioner>
+  auto defaultBCRSMatrixPreconditionerBlockLevelCreator(){
+    return [](auto opInfo, const auto& linearOperator, const Dune::ParameterTree& config)
+    {
+      using OpInfo = std::decay_t<decltype(opInfo)>;
+      using Matrix = typename OpInfo::matrix_type;
+      using Domain = typename OpInfo::domain_type;
+      using Range = typename OpInfo::range_type;
+      std::shared_ptr<Dune::Preconditioner<Domain, Range>> preconditioner;
+      if constexpr (OpInfo::isAssembled){
+        const auto& A = opInfo.getAssembledOpOrThrow(linearOperator);
+        // const Matrix& matrix = A->getmat();
+        if constexpr (SolverFactoryHelper::isBCRSMatrix_v<Matrix>)
+        {
+          constexpr int blockLevel = Dune::blockLevel<Matrix>()-1;
+          preconditioner
+            = std::make_shared<Preconditioner<Matrix, Domain, Range, blockLevel>>(A, config);
+        }else{
+          DUNE_THROW(NoAssembledOperator, "This preconditioner only works with BCRSMatrices.");
+        }
+      }else{
+        DUNE_THROW(NoAssembledOperator, "Could not obtain matrix from operator. Please pass in an AssembledLinearOperator.");
+      }
+      return preconditioner;
+    };
+  }
+
+  template<template<class,class,class>class Preconditioner>
+  auto defaultBCRSMatrixPreconditionerCreator(){
+    return [](auto opInfo, const auto& linearOperator, const Dune::ParameterTree& config)
+    {
+      using OpInfo = std::decay_t<decltype(opInfo)>;
+      using Matrix = typename OpInfo::matrix_type;
+      using Domain = typename OpInfo::domain_type;
+      using Range = typename OpInfo::range_type;
+      std::shared_ptr<Dune::Preconditioner<Domain, Range>> preconditioner;
+      if constexpr (OpInfo::isAssembled){
+        const auto& A = opInfo.getAssembledOpOrThrow(linearOperator);
+        // const Matrix& matrix = A->getmat();
+        if constexpr (SolverFactoryHelper::isBCRSMatrix_v<Matrix>)
+        {
+          preconditioner
+            = std::make_shared<Preconditioner<Matrix, Domain, Range>>(A, config);
+        }else{
+          DUNE_THROW(NoAssembledOperator, "This preconditioner only works with BCRSMatrices.");
+        }
       }else{
         DUNE_THROW(NoAssembledOperator, "Could not obtain matrix from operator. Please pass in an AssembledLinearOperator.");
       }
