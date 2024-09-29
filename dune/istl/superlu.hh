@@ -739,13 +739,9 @@ namespace Dune
                          if constexpr (OpTraits::isAssembled &&
                                        // check whether the Matrix field_type is double or complex<double>
                                        std::is_same_v<typename FieldTraits<M>::real_type, double>){
-                           // check if SuperLU<M>* is convertible to
-                           // InverseOperator*. This checks compatibility of the
-                           // domain and range types
-                           if constexpr (std::is_convertible_v<SuperLU<M>*,
-                                         Dune::InverseOperator<typename OpTraits::domain_type,
-                                         typename OpTraits::range_type>*>
-                                         ){
+                           // check compatibility of SuperLU<M> with
+                           // the domain and range types
+                           if constexpr (SolverFactoryHelper::isValidBlock_v<OpTraits,Impl::SuperLUVectorChooser<M>>) {
                              const auto& A = opTraits.getAssembledOpOrThrow(op);
                              const M& mat = A->getmat();
                              int verbose = config.get("verbose", 0);
@@ -755,6 +751,7 @@ namespace Dune
                          DUNE_THROW(UnsupportedType,
                                     "Unsupported Type in SuperLU (only double and std::complex<double> supported)");
                        });
+
 } // end namespace DUNE
 
 // undefine macros from SuperLU's slu_util.h

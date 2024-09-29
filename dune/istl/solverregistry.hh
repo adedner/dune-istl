@@ -51,6 +51,19 @@ namespace Dune{
     using DirectSolverTag = SolverTag;
   }
 
+  namespace SolverFactoryHelper {
+    template<class OpTraits, class VectorChooser, class=void> struct isValidBlock : std::false_type{};
+    template<class OpTraits, class VectorChooser> struct isValidBlock<OpTraits, VectorChooser,
+      std::enable_if_t<
+           std::is_same_v<typename VectorChooser::domain_type, typename OpTraits::domain_type>
+        && std::is_same_v<typename VectorChooser::range_type, typename OpTraits::range_type>
+        && std::is_same_v<typename FieldTraits<typename OpTraits::domain_type::field_type>::real_type, double>
+        && std::is_same_v<typename FieldTraits<typename OpTraits::range_type::field_type>::real_type, double>
+      >> : std::true_type {};
+    template<class OpTraits, class VectorChooser>
+    inline constexpr bool isValidBlock_v = isValidBlock<OpTraits, VectorChooser>::value;
+  }
+
   //! This exception is thrown if the requested solver or preconditioner needs an assembled matrix
   class NoAssembledOperator : public InvalidStateException{};
 
