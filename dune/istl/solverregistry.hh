@@ -10,6 +10,7 @@
 #include <dune/istl/preconditioner.hh>
 #include <dune/istl/blocklevel.hh>
 #include <dune/istl/solver.hh>
+#include <dune/istl/bcrsmatrix.hh>
 
 namespace Dune::Impl {
   template<class C>
