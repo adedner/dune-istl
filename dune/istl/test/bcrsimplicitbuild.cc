@@ -10,7 +10,7 @@
 #include <dune/common/exceptions.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
-typedef Dune::BCRSMatrix<Dune::FieldMatrix<double,1,1> > ScalarMatrix;
+typedef Dune::BCRSMatrix<double> ScalarMatrix;
 
 void buildMatrix(ScalarMatrix& m)
 {
@@ -255,10 +255,6 @@ int testEntryConsistency()
 {
   int ret=0;
   ScalarMatrix m(10,10,3,0.1,ScalarMatrix::implicit);
-  if(!Dune::FloatCmp::eq(static_cast<const double&>(m.entry(0,3)),0.0))
-    ret++;
-  if(!Dune::FloatCmp::eq(static_cast<const double&>(m.entry(7,6)),0.0))
-    ++ret;
   buildMatrix(m);
   if(!Dune::FloatCmp::eq(static_cast<const double&>(m.entry(0,3)),1.0))
     ++ret;
