@@ -13,6 +13,7 @@
 #include <dune/common/tuplevector.hh>
 
 #include <dune/istl/bcrsmatrix.hh>
+#include <dune/istl/concepts.hh>
 #include <dune/istl/multitypeblockmatrix.hh>
 #include <dune/istl/foreach.hh>
 #include <dune/istl/matrixindexset.hh>
@@ -28,6 +29,7 @@ struct SparseVector
     SparseVectorIterator (EntryIt entry, PosIt pos) : entry_(entry), pos_(pos) {}
     auto& operator*() const { return *entry_; }
     SparseVectorIterator& operator++() { ++entry_;++pos_; return *this; }
+    SparseVectorIterator operator++(int) { SparseVectorIterator tmp(*this); ++(*this); return tmp; }
     bool operator==(const SparseVectorIterator& other) const { return pos_ == other.pos_; };
     std::size_t index() const { return *pos_; }
 
@@ -51,12 +53,6 @@ struct SparseVector
 
   std::size_t size() const { return size_; }
 
-  T operator[] (std::size_t i) const
-  {
-    auto it = std::find(positions_.begin(), positions_.begin()+nnz_, i) ;
-    return it != positions_.begin()+nnz_ ? entries_[std::distance(positions_.begin(), it)] : T{};
-  }
-
   std::size_t size_;
   std::size_t nnz_ = 0;
   std::array<std::size_t,capacity> positions_ = {};
@@ -64,15 +60,11 @@ struct SparseVector
 };
 
 
-template <class T,std::size_t c>
-struct Dune::Impl::IsSparseVector<SparseVector<T,c>> : std::true_type {};
-
-
 using namespace Dune;
 
 TestSuite testFlatVectorForEach()
 {
-  TestSuite t;
+  TestSuite t("testFlatVectorForEach");
 
   // mix up some types
 
@@ -110,7 +102,7 @@ TestSuite testFlatVectorForEach()
 
 TestSuite testFlatVectorForEachBitSetVector()
 {
-  TestSuite t;
+  TestSuite t("testFlatVectorForEachBitSetVector");
 
   int entries = 0;
 
@@ -132,9 +124,10 @@ TestSuite testFlatVectorForEachBitSetVector()
 
 TestSuite testFlatVectorForEachSparse()
 {
-  TestSuite t;
+  TestSuite t("testFlatVectorForEachSparse");
 
   SparseVector<double,3> uv1{/*size*/10, /*nnz*/ 2, /*pos*/{2,5}, /*value*/{7.0,3.0}};
+  static_assert(Dune::ISTL::Concept::IndexedRange<SparseVector<double,3>>);
 
   int visitedEntries = 0;
   auto countVisitedEntres = [&](auto&& entry, auto&& index){
@@ -169,7 +162,7 @@ TestSuite testFlatVectorForEachSparse()
 
 TestSuite testFlatMatrixForEachStatic()
 {
-  TestSuite t;
+  TestSuite t("testFlatMatrixForEachStatic");
 
   [[maybe_unused]] FieldMatrix<double,3,3> F33;
   [[maybe_unused]] FieldMatrix<double,3,1> F31;
@@ -226,7 +219,7 @@ TestSuite testFlatMatrixForEachStatic()
 
 TestSuite testFlatMatrixForEachDynamic()
 {
-  TestSuite t;
+  TestSuite t("testFlatMatrixForEachDynamic");
 
   DynamicMatrix<double> F33(3,3);
 
