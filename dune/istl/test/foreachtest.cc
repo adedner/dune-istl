@@ -17,42 +17,55 @@
 #include <dune/istl/foreach.hh>
 #include <dune/istl/matrixindexset.hh>
 
-template <class T>
-struct UnitVector
+template <class T, std::size_t capacity>
+struct SparseVector
 {
-  template <class V>
-  struct UnitVectorIterator
-    : public Dune::IteratorFacade<UnitVectorIterator<V>, std::forward_iterator_tag, V>
+  template <class EntryIt, class PosIt>
+  struct SparseVectorIterator
+    : public Dune::IteratorFacadeForTraits<SparseVectorIterator<EntryIt,PosIt>,
+        Dune::DefaultIteratorTraits<std::forward_iterator_tag, typename std::iterator_traits<EntryIt>::reference>>
   {
-    UnitVectorIterator (V* entry, std::size_t pos) : entry_(entry), pos_(pos) {}
-    V& operator*() const { return *entry_; }
-    UnitVectorIterator& operator++() { ++pos_; return *this; }
-    bool operator==(const UnitVectorIterator& other) const { return pos_ == other.pos_; };
+    SparseVectorIterator (EntryIt entry, PosIt pos) : entry_(entry), pos_(pos) {}
+    auto& operator*() const { return *entry_; }
+    SparseVectorIterator& operator++() { ++entry_;++pos_; return *this; }
+    bool operator==(const SparseVectorIterator& other) const { return pos_ == other.pos_; };
+    std::size_t index() const { return *pos_; }
 
-    std::size_t index() const { return pos_; }
-
-    V* entry_ = nullptr;
-    std::size_t pos_ = 0;
+    EntryIt entry_;
+    PosIt pos_;
   };
 
-  UnitVectorIterator<T> begin() { return {&entry_, pos_}; }
-  UnitVectorIterator<T> end() { return {&entry_, pos_+1}; }
+  auto begin() { return SparseVectorIterator{entries_.begin(), positions_.begin()}; }
+  auto end() { return SparseVectorIterator{entries_.begin()+nnz_, positions_.begin()+nnz_}; }
+  auto begin() const { return SparseVectorIterator{entries_.begin(), positions_.begin()}; }
+  auto end() const { return SparseVectorIterator{entries_.begin()+nnz_, positions_.begin()+nnz_}; }
 
-  UnitVectorIterator<const T> begin() const { return {&entry_, pos_}; }
-  UnitVectorIterator<const T> end() const { return {&entry_, pos_+1}; }
+  void insert(std::size_t pos, T entry)
+  {
+    assert(nnz_ < capacity);
+    if (nnz_ < capacity) {
+      positions_[nnz_] = pos;
+      entries_[nnz_] = entry;
+    }
+  }
 
   std::size_t size() const { return size_; }
 
-  T operator[] (std::size_t i) const { return i == pos_ ? entry_ : T{}; }
+  T operator[] (std::size_t i) const
+  {
+    auto it = std::find(positions_.begin(), positions_.begin()+nnz_, i) ;
+    return it != positions_.begin()+nnz_ ? entries_[std::distance(positions_.begin(), it)] : T{};
+  }
 
   std::size_t size_;
-  std::size_t pos_;
-  T entry_ = {};
+  std::size_t nnz_ = 0;
+  std::array<std::size_t,capacity> positions_ = {};
+  std::array<T,capacity> entries_ = {};
 };
 
 
-template <class T>
-struct Dune::Impl::IsSparseVector<UnitVector<T>> : std::true_type {};
+template <class T,std::size_t c>
+struct Dune::Impl::IsSparseVector<SparseVector<T,c>> : std::true_type {};
 
 
 using namespace Dune;
@@ -112,6 +125,43 @@ TestSuite testFlatVectorForEachBitSetVector()
 
   t.check( entries == 20 );
   t.check( s == 20 );
+
+  return t;
+}
+
+
+TestSuite testFlatVectorForEachSparse()
+{
+  TestSuite t;
+
+  SparseVector<double,3> uv1{/*size*/10, /*nnz*/ 2, /*pos*/{2,5}, /*value*/{7.0,3.0}};
+
+  int visitedEntries = 0;
+  auto countVisitedEntres = [&](auto&& entry, auto&& index){
+    visitedEntries++;
+  };
+
+  auto s1 = flatVectorForEach(uv1,countVisitedEntres);
+
+  t.check( visitedEntries == 2 );
+  t.check( s1 == 10 );
+
+  SparseVector<Dune::FieldVector<double,2>,2> uv2{10, 1, {2}, {Dune::FieldVector<double,2>{1.0,2.0}}};
+
+  visitedEntries = 0;
+  auto s2 = flatVectorForEach(uv2,countVisitedEntres);
+
+  t.check( visitedEntries == 2 );
+  t.check( s2 == 20 );
+
+  // an empty sparse vector
+  SparseVector<double,3> uv3{10, 0};
+
+  visitedEntries = 0;
+  auto s3 = flatVectorForEach(uv3,countVisitedEntres);
+
+  t.check( visitedEntries == 0 );
+  t.check( s3 == 10 );
 
   return t;
 }
@@ -212,42 +262,15 @@ TestSuite testFlatMatrixForEachDynamic()
 }
 
 
-TestSuite testFlatMatrixForEachSparse()
-{
-  TestSuite t;
-
-  UnitVector<double> uv1{10,3};
-
-  int visitedEntries = 0;
-  auto countVisitedEntres = [&](auto&& entry, auto&& index){
-    visitedEntries++;
-  };
-
-  auto s1 = flatVectorForEach(uv1,countVisitedEntres);
-
-  t.check( visitedEntries == 1 );
-  t.check( s1 == 10 );
-
-  UnitVector<Dune::FieldVector<double,2>> uv2{10,3};
-  visitedEntries = 0;
-
-  auto s2 = flatVectorForEach(uv2,countVisitedEntres);
-
-  t.check( visitedEntries == 2 );
-  t.check( s2 == 20 );
-
-  return t;
-}
-
 int main(int argc, char** argv)
 {
   TestSuite t;
 
   t.subTest(testFlatVectorForEach());
   t.subTest(testFlatVectorForEachBitSetVector());
+  t.subTest(testFlatVectorForEachSparse());
   t.subTest(testFlatMatrixForEachStatic());
   t.subTest(testFlatMatrixForEachDynamic());
-  t.subTest(testFlatMatrixForEachSparse());
 
   return t.exit();
 }
