@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 
 #include <iostream>
+#include <iterator>
+#include <type_traits>
 
 #include <dune/common/bitsetvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/dynmatrix.hh>
+#include <dune/common/iteratorfacades.hh>
 #include <dune/common/test/testsuite.hh>
 #include <dune/common/tuplevector.hh>
 
@@ -14,7 +17,42 @@
 #include <dune/istl/foreach.hh>
 #include <dune/istl/matrixindexset.hh>
 
+template <class T>
+struct UnitVector
+{
+  template <class V>
+  struct UnitVectorIterator
+    : public Dune::IteratorFacade<UnitVectorIterator<V>, std::forward_iterator_tag, V>
+  {
+    UnitVectorIterator (V* entry, std::size_t pos) : entry_(entry), pos_(pos) {}
+    V& operator*() const { return *entry_; }
+    UnitVectorIterator& operator++() { ++pos_; return *this; }
+    bool operator==(const UnitVectorIterator& other) const { return pos_ == other.pos_; };
 
+    std::size_t index() const { return pos_; }
+
+    V* entry_ = nullptr;
+    std::size_t pos_ = 0;
+  };
+
+  UnitVectorIterator<T> begin() { return {&entry_, pos_}; }
+  UnitVectorIterator<T> end() { return {&entry_, pos_+1}; }
+
+  UnitVectorIterator<const T> begin() const { return {&entry_, pos_}; }
+  UnitVectorIterator<const T> end() const { return {&entry_, pos_+1}; }
+
+  std::size_t size() const { return size_; }
+
+  T operator[] (std::size_t i) const { return i == pos_ ? entry_ : T{}; }
+
+  std::size_t size_;
+  std::size_t pos_;
+  T entry_ = {};
+};
+
+
+template <class T>
+struct Dune::Impl::IsSparseVector<UnitVector<T>> : std::true_type {};
 
 
 using namespace Dune;
@@ -174,6 +212,32 @@ TestSuite testFlatMatrixForEachDynamic()
 }
 
 
+TestSuite testFlatMatrixForEachSparse()
+{
+  TestSuite t;
+
+  UnitVector<double> uv1{10,3};
+
+  int visitedEntries = 0;
+  auto countVisitedEntres = [&](auto&& entry, auto&& index){
+    visitedEntries++;
+  };
+
+  auto s1 = flatVectorForEach(uv1,countVisitedEntres);
+
+  t.check( visitedEntries == 1 );
+  t.check( s1 == 10 );
+
+  UnitVector<Dune::FieldVector<double,2>> uv2{10,3};
+  visitedEntries = 0;
+
+  auto s2 = flatVectorForEach(uv2,countVisitedEntres);
+
+  t.check( visitedEntries == 2 );
+  t.check( s2 == 20 );
+
+  return t;
+}
 
 int main(int argc, char** argv)
 {
@@ -183,6 +247,7 @@ int main(int argc, char** argv)
   t.subTest(testFlatVectorForEachBitSetVector());
   t.subTest(testFlatMatrixForEachStatic());
   t.subTest(testFlatMatrixForEachDynamic());
+  t.subTest(testFlatMatrixForEachSparse());
 
   return t.exit();
 }

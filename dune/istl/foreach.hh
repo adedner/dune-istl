@@ -41,6 +41,9 @@ namespace Dune{
   template <class K, int n>
   struct IsRowMajorSparse<ScaledIdentityMatrix<K,n>> : std::true_type {};
 
+  template <class T>
+  struct IsSparseVector : std::false_type {};
+
 
   template <class Matrix>
   auto rows(Matrix const& /*matrix*/, PriorityTag<2>) -> std::integral_constant<std::size_t, Matrix::N()> { return {}; }
@@ -99,6 +102,34 @@ std::size_t flatVectorForEach(Vector&& vector, F&& f, std::size_t offset = 0)
   {
     f(vector, offset);
     return 1;
+  }
+  else if constexpr ( Impl::IsSparseVector<V>::value )
+  {
+    // find an existing block or at least try to create one
+    using Block = std::decay_t<decltype(*vector.begin())>;
+    auto block = [&]{
+      for (auto const& v_i : vector)
+        return v_i;
+      return Block{};
+    }();
+
+    // compute the flat size of the block
+    auto blockSize = flatVectorForEach(block, [](...){});
+
+    // check whether we have valid sized blocks
+    assert( ( blockSize != 0 ) and "the block size can't be zero");
+
+    for (auto&& [v_i, i] : Dune::sparseRange(vector))
+    {
+#ifndef NDEBUG
+      // only instantiate return value in debug mode (for the assert)
+      auto size =
+#endif
+      flatVectorForEach(v_i, f, offset + i*blockSize);
+      assert( ( size == blockSize ) and "we need the same size of each block in this vector type");
+    }
+
+    return vector.size()*blockSize;
   }
   else
   {
