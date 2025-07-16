@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 #pragma once
 
+#include<optional>
 #include<type_traits>
 #include<utility>
 #include<cassert>
@@ -107,14 +108,16 @@ std::size_t flatVectorForEach(Vector&& vector, F&& f, std::size_t offset = 0)
   {
     // find an existing block or at least try to create one
     using Block = std::decay_t<decltype(*vector.begin())>;
-    auto block = [&]{
+    std::optional<Block> optionalBlock = std::nullopt;
+    auto block = [&]()-> auto const& {
       for (auto const& v_i : vector)
         return v_i;
-      return Block{};
-    }();
+      optionalBlock.emplace();
+      return *optionalBlock;
+    };
 
     // compute the flat size of the block
-    auto blockSize = flatVectorForEach(block, [](...){});
+    auto blockSize = flatVectorForEach(block(), [](...){});
 
     // check whether we have valid sized blocks
     assert( ( blockSize != 0 ) and "the block size can't be zero");
