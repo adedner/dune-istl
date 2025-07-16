@@ -48,6 +48,7 @@ struct SparseVector
     if (nnz_ < capacity) {
       positions_[nnz_] = pos;
       entries_[nnz_] = entry;
+      ++nnz_;
     }
   }
 
