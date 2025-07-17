@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright © DUNE Project contributors, see file LICENSE.md in module root
 // SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 
+#include <array>
 #include <iostream>
 #include <iterator>
 #include <type_traits>
@@ -18,46 +19,35 @@
 #include <dune/istl/foreach.hh>
 #include <dune/istl/matrixindexset.hh>
 
-template <class T, std::size_t capacity>
+template <class PosIt, class EntryIt>
+struct SparseVectorIterator
+  : public Dune::IteratorFacadeForTraits<SparseVectorIterator<PosIt,EntryIt>,
+      Dune::DefaultIteratorTraits<std::forward_iterator_tag, typename std::iterator_traits<EntryIt>::reference>>
+{
+  SparseVectorIterator (PosIt pos, EntryIt entry) : pos_(pos), entry_(entry) {}
+  auto& operator*() const { return *entry_; }
+  SparseVectorIterator& operator++() { ++pos_; ++entry_; return *this; }
+  SparseVectorIterator operator++(int) { SparseVectorIterator tmp(*this); ++(*this); return tmp; }
+  bool operator==(const SparseVectorIterator& other) const { return pos_ == other.pos_; };
+  std::size_t index() const { return *pos_; }
+
+  PosIt pos_;
+  EntryIt entry_;
+};
+
+template <class T, std::size_t S, std::size_t C = S>
 struct SparseVector
 {
-  template <class EntryIt, class PosIt>
-  struct SparseVectorIterator
-    : public Dune::IteratorFacadeForTraits<SparseVectorIterator<EntryIt,PosIt>,
-        Dune::DefaultIteratorTraits<std::forward_iterator_tag, typename std::iterator_traits<EntryIt>::reference>>
-  {
-    SparseVectorIterator (EntryIt entry, PosIt pos) : entry_(entry), pos_(pos) {}
-    auto& operator*() const { return *entry_; }
-    SparseVectorIterator& operator++() { ++entry_;++pos_; return *this; }
-    SparseVectorIterator operator++(int) { SparseVectorIterator tmp(*this); ++(*this); return tmp; }
-    bool operator==(const SparseVectorIterator& other) const { return pos_ == other.pos_; };
-    std::size_t index() const { return *pos_; }
+  auto begin() { return SparseVectorIterator{positions_.begin(), entries_.begin()}; }
+  auto end() { return SparseVectorIterator{positions_.end(), entries_.end()}; }
+  auto begin() const { return SparseVectorIterator{positions_.begin(), entries_.begin()}; }
+  auto end() const { return SparseVectorIterator{positions_.end(), entries_.end()}; }
 
-    EntryIt entry_;
-    PosIt pos_;
-  };
+  static constexpr std::size_t size() { return S; }
+  static constexpr std::size_t capacity() { return C; }
 
-  auto begin() { return SparseVectorIterator{entries_.begin(), positions_.begin()}; }
-  auto end() { return SparseVectorIterator{entries_.begin()+nnz_, positions_.begin()+nnz_}; }
-  auto begin() const { return SparseVectorIterator{entries_.begin(), positions_.begin()}; }
-  auto end() const { return SparseVectorIterator{entries_.begin()+nnz_, positions_.begin()+nnz_}; }
-
-  void insert(std::size_t pos, T entry)
-  {
-    assert(nnz_ < capacity);
-    if (nnz_ < capacity) {
-      positions_[nnz_] = pos;
-      entries_[nnz_] = entry;
-      ++nnz_;
-    }
-  }
-
-  std::size_t size() const { return size_; }
-
-  std::size_t size_;
-  std::size_t nnz_ = 0;
-  std::array<std::size_t,capacity> positions_ = {};
-  std::array<T,capacity> entries_ = {};
+  std::array<std::size_t,C> positions_ = {};
+  std::array<T,C> entries_ = {};
 };
 
 
@@ -127,8 +117,8 @@ TestSuite testFlatVectorForEachSparse()
 {
   TestSuite t("testFlatVectorForEachSparse");
 
-  SparseVector<double,3> uv1{/*size*/10, /*nnz*/ 2, /*pos*/{2,5}, /*value*/{7.0,3.0}};
-  static_assert(Dune::ISTL::Concept::IndexedRange<SparseVector<double,3>>);
+  SparseVector<double,10,2> uv1{{2,5}, {7.0,3.0}};
+  static_assert(Dune::ISTL::Concept::IndexedRange<SparseVector<double,3,2>>);
 
   int visitedEntries = 0;
   auto countVisitedEntres = [&](auto&& entry, auto&& index){
@@ -140,7 +130,7 @@ TestSuite testFlatVectorForEachSparse()
   t.check( visitedEntries == 2 );
   t.check( s1 == 10 );
 
-  SparseVector<Dune::FieldVector<double,2>,2> uv2{10, 1, {2}, {Dune::FieldVector<double,2>{1.0,2.0}}};
+  SparseVector<FieldVector<double,2>,10,1> uv2{{2}, {FieldVector<double,2>{1.0,2.0}}};
 
   visitedEntries = 0;
   auto s2 = flatVectorForEach(uv2,countVisitedEntres);
@@ -149,13 +139,22 @@ TestSuite testFlatVectorForEachSparse()
   t.check( s2 == 20 );
 
   // an empty sparse vector
-  SparseVector<double,3> uv3{10, 0};
+  SparseVector<double,10,0> uv3{};
 
   visitedEntries = 0;
   auto s3 = flatVectorForEach(uv3,countVisitedEntres);
 
   t.check( visitedEntries == 0 );
   t.check( s3 == 10 );
+
+  // a nested sparse vector
+  SparseVector<SparseVector<double,3,1>,10,1> uv4{{4}, {SparseVector<double,3,1>{{1}, {42.0}}}};
+
+  visitedEntries = 0;
+  auto s4 = flatVectorForEach(uv4,countVisitedEntres);
+
+  t.check( visitedEntries == 1 );
+  t.check( s4 == 30 );
 
   return t;
 }
