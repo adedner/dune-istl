@@ -10,6 +10,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/dynmatrix.hh>
 #include <dune/common/iteratorfacades.hh>
+#include <dune/common/reservedvector.hh>
 #include <dune/common/test/testsuite.hh>
 #include <dune/common/tuplevector.hh>
 
@@ -46,8 +47,8 @@ struct SparseVector
   static constexpr std::size_t size() { return S; }
   static constexpr std::size_t capacity() { return C; }
 
-  std::array<std::size_t,C> positions_ = {};
-  std::array<T,C> entries_ = {};
+  Dune::ReservedVector<std::size_t,C> positions_ = {};
+  Dune::ReservedVector<T,C> entries_ = {};
 };
 
 
