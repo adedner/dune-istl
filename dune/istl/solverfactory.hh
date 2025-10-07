@@ -122,6 +122,57 @@ namespace Dune{
     }
   } // end anonymous namespace
 
+  template<class O, class Preconditioner>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<Preconditioner>
+  wrapPreconditioner4Parallel(const std::shared_ptr<Preconditioner>& prec,
+                                                              const O&)
+  {
+    return prec;
+  }
+
+  template<class M, class X, class Y, class C, class Preconditioner>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<Preconditioner>
+  wrapPreconditioner4Parallel(const std::shared_ptr<Preconditioner>& prec,
+                              const std::shared_ptr<OverlappingSchwarzOperator<M,X,Y,C> >& op)
+  {
+    return std::make_shared<BlockPreconditioner<X,Y,C,Preconditioner> >(prec, op->getCommunication());
+  }
+
+  template<class M, class X, class Y, class C, class Preconditioner>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<Preconditioner>
+  wrapPreconditioner4Parallel(const std::shared_ptr<Preconditioner>& prec,
+                              const std::shared_ptr<NonoverlappingSchwarzOperator<M,X,Y,C> >& op)
+  {
+    return std::make_shared<NonoverlappingBlockPreconditioner<C,Preconditioner> >(prec, op->getCommunication());
+  }
+
+  template<class M, class X, class Y>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<ScalarProduct<X>>
+  createScalarProduct(const std::shared_ptr<MatrixAdapter<M,X,Y> >&)
+  {
+    return std::make_shared<SeqScalarProduct<X>>();
+  }
+
+  template<class M, class X, class Y, class C>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<ScalarProduct<X>>
+  createScalarProduct(const std::shared_ptr<OverlappingSchwarzOperator<M,X,Y,C> >& op)
+  {
+    return createScalarProduct<X>(op->getCommunication(), op->category());
+  }
+
+  template<class M, class X, class Y, class C>
+  [[deprecated("helper function will be removed after 2.11")]]
+  std::shared_ptr<ScalarProduct<X>>
+  createScalarProduct(const std::shared_ptr<NonoverlappingSchwarzOperator<M,X,Y,C> >& op)
+  {
+    return createScalarProduct<X>(op->getCommunication(), op->category());
+  }
+
   /**
      \brief Instantiates an `InverseOperator` from an Operator and a
      configuration given as a ParameterTree.

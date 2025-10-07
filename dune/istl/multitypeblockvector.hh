@@ -249,7 +249,10 @@ namespace Dune {
 
     /** \brief Compute the Euclidean norm
      */
-    real_type two_norm() const {return sqrt(this->two_norm2());}
+    real_type two_norm() const {
+      using std::sqrt;
+      return sqrt(this->two_norm2());
+    }
 
     /** \brief Compute the maximum norm
      */

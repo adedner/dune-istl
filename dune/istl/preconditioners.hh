@@ -680,7 +680,7 @@ namespace Dune {
     //! \brief true if w != 1.0
     const bool wNotIdentity_;
   };
-  DUNE_REGISTER_PRECONDITIONER("dilu", defaultPreconditionerBlockLevelCreator<Dune::SeqDILU>());
+  DUNE_REGISTER_PRECONDITIONER("dilu", defaultBCRSMatrixPreconditionerBlockLevelCreator<Dune::SeqDILU>());
 
   /*!
      \brief Sequential ILU preconditioner.
@@ -863,7 +863,7 @@ namespace Dune {
     //! \brief true if w != 1.0
     const bool wNotIdentity_;
   };
-  DUNE_REGISTER_PRECONDITIONER("ilu", defaultPreconditionerBlockLevelCreator<Dune::SeqILU>());
+  DUNE_REGISTER_PRECONDITIONER("ilu", defaultBCRSMatrixPreconditionerBlockLevelCreator<Dune::SeqILU>());
 
 
   /*!
@@ -1089,7 +1089,7 @@ namespace Dune {
     matrix_type decomposition_;
     real_field_type relax_;
   };
-  DUNE_REGISTER_PRECONDITIONER("ildl", defaultPreconditionerCreator<Dune::SeqILDL>());
+  DUNE_REGISTER_PRECONDITIONER("ildl", defaultBCRSMatrixPreconditionerCreator<Dune::SeqILDL>());
 
   /** @} end documentation */
 
