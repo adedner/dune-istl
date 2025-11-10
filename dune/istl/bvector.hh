@@ -743,6 +743,16 @@ namespace Imp {
   {
   public:
 
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors provided by the derived class.")]]
+    compressed_block_vector_unmanaged (const compressed_block_vector_unmanaged& a) = default;
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors provided by the derived class.")]]
+    compressed_block_vector_unmanaged (compressed_block_vector_unmanaged&& a) = default;
+
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors provided by the derived class.")]]
+    compressed_block_vector_unmanaged& operator= (const compressed_block_vector_unmanaged& a) = default;
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors provided by the derived class.")]]
+    compressed_block_vector_unmanaged& operator= (compressed_block_vector_unmanaged&& a) = default;
+
     //===== type definitions and constants
 
     //! export the type representing the field
@@ -1026,12 +1036,11 @@ namespace Imp {
     }
 
     //! copy constructor, this has reference semantics!
-    CompressedBlockVectorWindow (const CompressedBlockVectorWindow& a)
-    {
-      this->n = a.n;
-      this->p = a.p;
-      this->j = a.j;
-    }
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors or populate objects with the 'set(n,p,j)' method.")]]
+    CompressedBlockVectorWindow (const CompressedBlockVectorWindow& a) = default;
+
+    [[deprecated("Reference semantics (i.e., assignment does shallow copy) will be removed due to ambiguity. Instead, use other explicit constructors or populate objects with the 'set(n,p,j)' method.")]]
+    CompressedBlockVectorWindow (CompressedBlockVectorWindow&& a) = default;
 
     //! assignment
     CompressedBlockVectorWindow& operator= (const CompressedBlockVectorWindow& a)
@@ -1057,6 +1066,10 @@ namespace Imp {
       return *this;
     }
 
+    [[deprecated]] CompressedBlockVectorWindow& operator= (CompressedBlockVectorWindow&& a)
+    {
+      return (*this = std::as_const(a));
+    }
 
     //===== window manipulation methods
 
