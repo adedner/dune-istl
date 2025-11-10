@@ -15,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <execution>
 
 #include "istlexception.hh"
 #include "bvector.hh"
@@ -1172,8 +1173,11 @@ namespace Dune {
 
       // initialize j_ array with m (an invalid column index)
       // this indicates an unused entry
-      for (size_type k=0; k<nnz_; k++)
+      auto indices = Dune::range(nnz_);
+      std::for_each(std::execution::par, indices.begin(), indices.end(), [&](auto&& k)
+      {
         j_.get()[k] = m;
+      });
       ready = rowSizesBuilt;
     }
 
@@ -2284,7 +2288,11 @@ namespace Dune {
         a = allocator_.allocate(allocationSize_);
         // use placement new to call constructor that allocates
         // additional memory.
-        new (a) B[allocationSize_];
+        auto indices = Dune::range(allocationSize_);
+        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](auto&& k)
+        {
+          new(a+k) B();
+        });
       } else {
         a = nullptr;
       }
