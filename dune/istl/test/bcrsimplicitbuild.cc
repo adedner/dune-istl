@@ -189,7 +189,7 @@ void testCopyConstructionAndAssignment()
 {
   ScalarMatrix m(10,10,3,0.1,ScalarMatrix::implicit);
   buildMatrix(m);
-  m.compress();
+  typename ScalarMatrix::CompressionStatistics stats = m.compress();
   ScalarMatrix m2(m);
   m2 = 3.0;
   ScalarMatrix m3(m);
@@ -249,6 +249,13 @@ int testInvalidCopyAssignment()
     // test passed
   }
   return ret;
+}
+
+void testSizeTypeWarnings()
+{
+  ScalarMatrix m(10,10,std::size_t{3},0.1,ScalarMatrix::implicit);
+  buildMatrix(m);
+  Dune::CompressionStatistics<typename ScalarMatrix::size_type> stats = m.compress();
 }
 
 int testEntryConsistency()
@@ -363,6 +370,7 @@ int main()
     testImplicitMatrixBuilder();
     testImplicitMatrixBuilderExtendedConstructor();
     testZeroSizeImplicitBuild();
+    testSizeTypeWarnings();
   }catch(Dune::Exception& e) {
     std::cerr << e <<std::endl;
     return 1;
