@@ -15,6 +15,7 @@
 #include<dune/common/exceptions.hh>
 #include<dune/common/fmatrix.hh>
 #include<dune/common/fvector.hh>
+#include<dune/istl/common/utility.hh>
 #include<dune/istl/bccsmatrixinitializer.hh>
 #include<dune/istl/bcrsmatrix.hh>
 #include<dune/istl/matrix.hh>
@@ -332,7 +333,7 @@ namespace Dune {
      * verbosity         | The verbosity level. default=0
     */
     UMFPack(const Matrix& mat_, const ParameterTree& config)
-      : UMFPack(mat_, config.get<int>("verbosity", 0))
+      : UMFPack(mat_, Impl::getVerbosity(config))
     {}
 
     /** @brief default constructor
@@ -828,7 +829,7 @@ namespace Dune {
                            if constexpr (UMFPackImpl::isValidBlock<OpTraits>::value) {
                              const auto& A = opTraits.getAssembledOpOrThrow(op);
                              const M& mat = A->getmat();
-                             int verbosity = config.get("verbosity", 0);
+                             int verbosity = Impl::getVerbosity(config);
                              return std::make_shared<Dune::UMFPack<M>>(mat,verbosity);
                            }
                          }

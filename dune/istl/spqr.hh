@@ -14,6 +14,7 @@
 
 #include <dune/common/exceptions.hh>
 
+#include <dune/istl/common/utility.hh>
 #include <dune/istl/bccsmatrixinitializer.hh>
 #include <dune/istl/solvers.hh>
 #include <dune/istl/solvertype.hh>
@@ -130,7 +131,7 @@ namespace Dune {
      * verbosity         | The verbosity level. default=0
     */
     SPQR(const Matrix& matrix, const ParameterTree& config)
-      : SPQR(matrix, config.get<int>("verbosity", 0))
+      : SPQR(matrix, Impl::getVerbosity(config))
     {}
 
     /** @brief Default constructor. */
@@ -352,7 +353,7 @@ namespace Dune {
                                        ){
                            const auto& A = opTraits.getAssembledOpOrThrow(op);
                            const M& mat = A->getmat();
-                           int verbosity = config.get("verbosity", 0);
+                           int verbosity = Impl::getVerbosity(config);
                            return std::make_shared<Dune::SPQR<M>>(mat,verbosity);
                          }
                          DUNE_THROW(UnsupportedType,

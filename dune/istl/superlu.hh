@@ -18,6 +18,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/stdstreams.hh>
+#include <dune/istl/common/utility.hh>
 #include <dune/istl/solvertype.hh>
 #include <dune/istl/solverfactory.hh>
 
@@ -318,7 +319,7 @@ namespace Dune
      * reuseVector       | Reuse initially allocated vectors in apply. default=true
     */
     SuperLU(const Matrix& matrix, const ParameterTree& config)
-      : SuperLU(matrix, config.get<int>("verbosity", 0), config.get<bool>("reuseVector", true))
+      : SuperLU(matrix, Impl::getVerbosity(config), config.get<bool>("reuseVector", true))
     {}
 
     /**
@@ -750,7 +751,7 @@ namespace Dune
                                          ){
                              const auto& A = opTraits.getAssembledOpOrThrow(op);
                              const M& mat = A->getmat();
-                             int verbosity = config.get("verbosity", 0);
+                             int verbosity = Impl::getVerbosity(config);
                              return std::make_shared<Dune::SuperLU<M>>(mat,verbosity);
                            }
                          }

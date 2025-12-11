@@ -8,6 +8,7 @@
 #include <memory>
 #include <sstream>
 #include <dune/common/exceptions.hh>
+#include <dune/istl/common/utility.hh>
 #include <dune/istl/paamg/smoother.hh>
 #include <dune/istl/paamg/transfer.hh>
 #include <dune/istl/paamg/matrixhierarchy.hh>
@@ -614,7 +615,7 @@ namespace Dune
         criterion.setNoPostSmoothSteps (configuration.get<std::size_t> ("postSteps"));
       postSteps_ = criterion.getNoPostSmoothSteps ();
 
-      verbosity_ = configuration.get("verbosity", 0);
+      verbosity_ = Impl::getVerbosity(configuration);
       criterion.setDebugLevel (verbosity_);
 
       createHierarchies(criterion, matrixptr, pinfo);

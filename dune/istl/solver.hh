@@ -24,6 +24,7 @@
 #include "preconditioner.hh"
 #include "operators.hh"
 #include "scalarproducts.hh"
+#include "common/utility.hh"
 
 namespace Dune
 {
@@ -293,7 +294,7 @@ namespace Dune
       IterativeSolver(op,std::make_shared<SeqScalarProduct<X>>(),prec,
         configuration.get<real_type>("reduction"),
         configuration.get<int>("maxit"),
-        configuration.get<int>("verbosity"))
+        Impl::getVerbosity(configuration))
     {}
 
     /*!
@@ -316,7 +317,7 @@ namespace Dune
       IterativeSolver(op,sp,prec,
         configuration.get<scalar_real_type>("reduction"),
         configuration.get<int>("maxit"),
-        configuration.get<int>("verbosity"))
+        Impl::getVerbosity(configuration))
     {}
 
     /**

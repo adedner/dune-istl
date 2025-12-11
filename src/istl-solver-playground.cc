@@ -105,7 +105,7 @@ int main(int argc, char** argv){
        feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);// | FE_UNDERFLOW);
      #endif
 
-  int verbosity = config.get("verbosity", 1);
+  int verbosity = Dune::Impl::getVerbosity(config);
   if(mpihelper.rank() > 0)
     verbosity = 0;
   std::shared_ptr<Vec> rhs = std::make_shared<Vec>();
