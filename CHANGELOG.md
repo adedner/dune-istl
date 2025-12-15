@@ -133,6 +133,12 @@ SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 - Extended the MatrixMarket IO functions for reading and writing vectors with
   SIMD field_type as tall-skinny matrices.
 
+- Add hybrid range and size utilities for matrices and vectors. Provide `Hybrid::numRows()`,
+  `Hybrid::numCols()`, `Hybrid::numEntries()` functions for extraction of the size of single or
+  multi-type matrices and vectors. Additionally, provide index-ranges `Hybrid::rows()`,
+  `Hybrid::cols()` and `Hybrid::entries()` for use in combination with `Hybrid::forEach()` for
+  iterating over matrices and vectors.
+
 - Added public access of the `cholmod_common` object in class `Cholmod`.
 
 - Python bindings have been moved from the `dune-python` module which is now
