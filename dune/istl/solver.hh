@@ -24,6 +24,7 @@
 #include "preconditioner.hh"
 #include "operators.hh"
 #include "scalarproducts.hh"
+#include "common/utility.hh"
 
 namespace Dune
 {
@@ -220,20 +221,20 @@ namespace Dune
        the operator.
        \param maxit The maximum number of iteration steps allowed when applying
        the operator.
-       \param verbose The verbosity level.
+       \param verbosity The verbosity level.
 
-       Verbose levels are:
+       verbosity levels are:
        <ul>
        <li> 0 : print nothing </li>
        <li> 1 : print initial and final defect and statistics </li>
        <li> 2 : print line for each iteration </li>
        </ul>
      */
-    IterativeSolver (const LinearOperator<X,Y>& op, Preconditioner<X,Y>& prec, scalar_real_type reduction, int maxit, int verbose) :
+    IterativeSolver (const LinearOperator<X,Y>& op, Preconditioner<X,Y>& prec, scalar_real_type reduction, int maxit, int verbosity) :
       _op(stackobject_to_shared_ptr(op)),
       _prec(stackobject_to_shared_ptr(prec)),
       _sp(new SeqScalarProduct<X>),
-      _reduction(reduction), _maxit(maxit), _verbose(verbose), _category(SolverCategory::sequential)
+      _reduction(reduction), _maxit(maxit), _verbosity(verbosity), _category(SolverCategory::sequential)
     {
       if(SolverCategory::category(op) != SolverCategory::sequential)
         DUNE_THROW(InvalidSolverCategory, "LinearOperator has to be sequential!");
@@ -252,9 +253,9 @@ namespace Dune
         the operator.
         \param maxit The maximum number of iteration steps allowed when applying
         the operator.
-        \param verbose The verbosity level.
+        \param verbosity The verbosity level.
 
-        Verbose levels are:
+        verbosity levels are:
         <ul>
         <li> 0 : print nothing </li>
         <li> 1 : print initial and final defect and statistics </li>
@@ -262,11 +263,11 @@ namespace Dune
         </ul>
      */
     IterativeSolver (const LinearOperator<X,Y>& op, const ScalarProduct<X>& sp, Preconditioner<X,Y>& prec,
-      scalar_real_type reduction, int maxit, int verbose) :
+      scalar_real_type reduction, int maxit, int verbosity) :
       _op(stackobject_to_shared_ptr(op)),
       _prec(stackobject_to_shared_ptr(prec)),
       _sp(stackobject_to_shared_ptr(sp)),
-      _reduction(reduction), _maxit(maxit), _verbose(verbose), _category(SolverCategory::category(op))
+      _reduction(reduction), _maxit(maxit), _verbosity(verbosity), _category(SolverCategory::category(op))
     {
       if(SolverCategory::category(op) != SolverCategory::category(prec))
         DUNE_THROW(InvalidSolverCategory, "LinearOperator and Preconditioner must have the same SolverCategory!");
@@ -285,7 +286,7 @@ namespace Dune
        ------------------|------------
        reduction         | The relative defect reduction to achieve when applying the operator
        maxit             | The maximum number of iteration steps allowed when applying the operator
-       verbose           | The verbosity level
+       verbosity         | The verbosity level
 
        See \ref ISTL_Factory for the ParameterTree layout and examples.
      */
@@ -293,7 +294,7 @@ namespace Dune
       IterativeSolver(op,std::make_shared<SeqScalarProduct<X>>(),prec,
         configuration.get<real_type>("reduction"),
         configuration.get<int>("maxit"),
-        configuration.get<int>("verbose"))
+        Impl::getVerbosity(configuration))
     {}
 
     /*!
@@ -308,7 +309,7 @@ namespace Dune
        ------------------|------------
        reduction         | The relative defect reduction to achieve when applying the operator
        maxit             | The maximum number of iteration steps allowed when applying the operator
-       verbose           | The verbosity level
+       verbosity         | The verbosity level
 
        See \ref ISTL_Factory for the ParameterTree layout and examples.
      */
@@ -316,7 +317,7 @@ namespace Dune
       IterativeSolver(op,sp,prec,
         configuration.get<scalar_real_type>("reduction"),
         configuration.get<int>("maxit"),
-        configuration.get<int>("verbose"))
+        Impl::getVerbosity(configuration))
     {}
 
     /**
@@ -330,9 +331,9 @@ namespace Dune
         the operator.
         \param maxit The maximum number of iteration steps allowed when applying
         the operator.
-        \param verbose The verbosity level.
+        \param verbosity The verbosity level.
 
-        Verbose levels are:
+        verbosity levels are:
         <ul>
         <li> 0 : print nothing </li>
         <li> 1 : print initial and final defect and statistics </li>
@@ -342,11 +343,11 @@ namespace Dune
     IterativeSolver (std::shared_ptr<const LinearOperator<X,Y>> op,
                      std::shared_ptr<const ScalarProduct<X>> sp,
                      std::shared_ptr<Preconditioner<X,Y>> prec,
-                     scalar_real_type reduction, int maxit, int verbose) :
+                     scalar_real_type reduction, int maxit, int verbosity) :
       _op(op),
       _prec(prec),
       _sp(sp),
-      _reduction(reduction), _maxit(maxit), _verbose(verbose),
+      _reduction(reduction), _maxit(maxit), _verbosity(verbosity),
       _category(SolverCategory::category(*op))
     {
       if(SolverCategory::category(*op) != SolverCategory::category(*prec))
@@ -419,9 +420,9 @@ namespace Dune
         , _valid(true)
       {
         res.clear();
-        if(_parent._verbose>0){
+        if(_parent._verbosity>0){
           std::cout << "=== " << parent.name() << std::endl;
-          if(_parent._verbose > 1)
+          if(_parent._verbosity > 1)
             _parent.printHeader(std::cout);
         }
       }
@@ -457,7 +458,7 @@ namespace Dune
       bool step(CountType i, real_type def){
         if (!Simd::allTrue(isFinite(def))) // check for inf or NaN
         {
-          if (_parent._verbose>0)
+          if (_parent._verbosity>0)
             std::cout << "=== " << _parent.name() << ": abort due to infinite or NaN defect"
                       << std::endl;
           DUNE_THROW(SolverAbort,
@@ -466,7 +467,7 @@ namespace Dune
         }
         if(i == 0)
           _def0 = def;
-        if(_parent._verbose > 1){
+        if(_parent._verbosity > 1){
           if(i!=0)
             _parent.printOutput(std::cout,i,def,_def);
           else
@@ -485,7 +486,7 @@ namespace Dune
         _res.reduction = static_cast<double>(Simd::max(_def/_def0));
         _res.conv_rate  = pow(_res.reduction,1.0/_i);
         _res.elapsed = _watch.elapsed();
-        if (_parent._verbose>0)                 // final print
+        if (_parent._verbosity>0)                 // final print
           {
             std::cout << "=== rate=" << _res.conv_rate
                       << ", T=" << _res.elapsed
@@ -508,7 +509,7 @@ namespace Dune
     std::shared_ptr<const ScalarProduct<X>> _sp;
     scalar_real_type _reduction;
     int _maxit;
-    int _verbose;
+    int _verbosity;
     SolverCategory::Category _category;
   };
 
