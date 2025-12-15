@@ -33,6 +33,10 @@
  * \brief Implementation of the BCRSMatrix class
  */
 
+#ifndef DUNE_ISTL_BCRSMATRIX_SIZE_TYPE
+#define DUNE_ISTL_BCRSMATRIX_SIZE_TYPE uint_least32_t
+#endif
+
 namespace Dune {
 
   /**
@@ -87,6 +91,32 @@ namespace Dune {
   template<typename size_type>
   struct CompressionStatistics
   {
+    CompressionStatistics() = default;
+    CompressionStatistics(const CompressionStatistics&) = default;
+    CompressionStatistics(CompressionStatistics&&) = default;
+    CompressionStatistics& operator=(const CompressionStatistics&) = default;
+    CompressionStatistics& operator=(CompressionStatistics&&) = default;
+
+    template<typename S, typename std::enable_if_t<!std::is_same_v<S, size_type>, int> = 0>
+    CompressionStatistics(const CompressionStatistics<S>& other)
+    {
+      *this = other;
+    }
+
+    template<typename S, typename std::enable_if_t<!std::is_same_v<S, size_type>, int> = 0>
+    [[deprecated(
+      "Assignment operator from 'CompressionStatistics<S>' to 'CompressionStatistics<size_type>' is being deprecated in version 2.11. "
+      "This warning may appear if using 'CompressionStatistics<typename M::size_type> = matrix.compress()'. "
+      "Use 'typename M::CompressionStatistics = matrix.compress()' instead."
+    )]]
+    CompressionStatistics& operator=(const CompressionStatistics<S>& other) {
+      avg = static_cast<size_type>(other.avg);
+      maximum = static_cast<size_type>(other.maximum);
+      overflow_total = static_cast<size_type>(other.overflow_total);
+      mem_ratio = static_cast<size_type>(other.mem_ratio);
+      return *this;
+    }
+
     //! average number of non-zeroes per row.
     double avg;
     //! maximum number of non-zeroes per row.
@@ -451,7 +481,7 @@ namespace Dune {
 
      \code
      //finish building by compressing the array
-     Dune::CompressionStatistics<M::size_type> stats = m.compress();
+     M::CompressionStatistics stats = m.compress();
      \endcode
 
      Internally the index array now looks like this:
@@ -495,13 +525,13 @@ namespace Dune {
     typedef A allocator_type;
 
     //! The type for the index access and the size
-    typedef typename A::size_type size_type;
+    using size_type = DUNE_ISTL_BCRSMATRIX_SIZE_TYPE;
 
     //! implement row_type with compressed vector
     typedef Imp::CompressedBlockVectorWindow<B,size_type> row_type;
 
     //! The type for the statistics object returned by compress()
-    typedef ::Dune::CompressionStatistics<size_type> CompressionStatistics;
+    typedef ::Dune::CompressionStatistics<typename allocator_type::size_type> CompressionStatistics;
 
     //! we support two modes
     enum BuildMode {
@@ -750,7 +780,7 @@ namespace Dune {
     {}
 
     //! matrix with known number of nonzeroes
-    BCRSMatrix (size_type _n, size_type _m, size_type _nnz, BuildMode bm)
+    BCRSMatrix (size_type _n, size_type _m, typename A::size_type _nnz, BuildMode bm)
       : build_mode(bm), ready(notAllocated), n(0), m(0), nnz_(0),
         allocationSize_(0), r(0), a(0),
         avg(0), compressionBufferSize_(-1.0)
@@ -809,7 +839,7 @@ namespace Dune {
         DUNE_THROW(InvalidStateException,"BCRSMatrix can only be copy-constructed when source matrix is completely empty (size not set) or fully built)");
 
       // deep copy in global array
-      size_type _nnz = Mat.nonzeroes();
+      typename allocator_type::size_type _nnz = Mat.nonzeroes();
 
       j_ = Mat.j_; // enable column index sharing, release array in case of row-wise allocation
       allocate(Mat.n, Mat.m, _nnz, true, true);
@@ -856,7 +886,7 @@ namespace Dune {
      * @param nnz The number of nonzero entries the matrix should hold (if omitted
      * defaults to 0). Must be omitted in implicit mode.
      */
-    void setSize(size_type rows, size_type columns, size_type nnz=0)
+    void setSize(size_type rows, size_type columns, typename A::size_type nnz=0)
     {
       // deallocate already setup memory
       deallocate();
@@ -1154,7 +1184,7 @@ namespace Dune {
         DUNE_THROW(BCRSMatrixError,"matrix row sizes already built up");
 
       // compute total size, check positivity
-      size_type total=0;
+      typename allocator_type::size_type total=0;
       for (size_type i=0; i<n; i++)
       {
         total += r[i].getsize();
@@ -1172,7 +1202,7 @@ namespace Dune {
 
       // initialize j_ array with m (an invalid column index)
       // this indicates an unused entry
-      for (size_type k=0; k<nnz_; k++)
+      for (typename allocator_type::size_type k=0; k<nnz_; k++)
         j_.get()[k] = m;
       ready = rowSizesBuilt;
     }
@@ -2061,8 +2091,8 @@ namespace Dune {
     // size of the matrix
     size_type n;       // number of rows
     size_type m;       // number of columns
-    mutable size_type nnz_;     // number of nonzeroes contained in the matrix
-    size_type allocationSize_; //allocated size of a and j arrays, except in implicit mode: nnz_==allocationsSize_
+    mutable typename allocator_type::size_type nnz_;     // number of nonzeroes contained in the matrix
+    typename allocator_type::size_type allocationSize_; //allocated size of a and j arrays, except in implicit mode: nnz_==allocationsSize_
     // zero means that memory is allocated separately for each row.
 
     // the rows are dynamically allocated
@@ -2235,7 +2265,7 @@ namespace Dune {
      * true)
      * \param allocate_data Whether data array needs to be allocated
      */
-    void allocate(size_type rows, size_type columns, size_type allocationSize, bool allocateRows, bool allocate_data)
+    void allocate(size_type rows, size_type columns, typename allocator_type::size_type allocationSize, bool allocateRows, bool allocate_data)
     {
       // Store size
       n = rows;
