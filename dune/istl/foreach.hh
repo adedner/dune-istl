@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 #pragma once
 
+#include<optional>
 #include<type_traits>
 #include<utility>
 #include<cassert>
@@ -12,18 +13,14 @@
 #include<dune/common/indices.hh>
 
 #include<dune/istl/bcrsmatrix.hh>
+#include<dune/istl/concepts.hh>
 #include<dune/istl/scaledidmatrix.hh>
 
-namespace Dune{
-
-  namespace Impl {
-
-  // stolen from dune-functions: we call a type "scalar" if it does not support index accessing
+namespace Dune {
+namespace Impl
+{
   template<class C>
-  using StaticIndexAccessConcept = decltype(std::declval<C>()[Dune::Indices::_0]);
-
-  template<class C>
-  using IsScalar = std::negation<Dune::Std::is_detected<StaticIndexAccessConcept, std::remove_reference_t<C>>>;
+  struct IsScalar : std::bool_constant<ISTL::Concept::Scalar<C>> {};
 
   // Type trait for matrix types that supports
   // - iteration done row-wise
@@ -60,11 +57,10 @@ namespace Dune{
   template <class Vector>
   auto size(Vector const& vector, PriorityTag<1>) -> decltype(vector.size()) { return vector.size(); }
 
+} // end namespace Impl
 
-  } // end namespace Impl
-
-namespace ForEach{
-
+namespace ForEach
+{
   template <class Matrix>
   auto rows(Matrix const& matrix) { return Impl::rows(matrix, PriorityTag<5>{}); }
 
@@ -95,10 +91,40 @@ template <class Vector, class F>
 std::size_t flatVectorForEach(Vector&& vector, F&& f, std::size_t offset = 0)
 {
   using V = std::decay_t<Vector>;
-  if constexpr( Impl::IsScalar<V>::value )
+  if constexpr(ISTL::Concept::Scalar<V>)
   {
     f(vector, offset);
     return 1;
+  }
+  else if constexpr (ISTL::Concept::IndexedRange<V>)
+  {
+    // find an existing block or at least try to create one
+    using Block = std::decay_t<decltype(*vector.begin())>;
+    std::optional<Block> optionalBlock = std::nullopt;
+    auto block = [&]()-> auto const& {
+      for (auto const& v_i : vector)
+        return v_i;
+      optionalBlock.emplace();
+      return *optionalBlock;
+    };
+
+    // compute the flat size of the block
+    auto blockSize = flatVectorForEach(block(), [](...){});
+
+    // check whether we have valid sized blocks
+    assert( ( blockSize != 0 ) and "the block size can't be zero");
+
+    for (auto&& [v_i, i] : Dune::sparseRange(vector))
+    {
+#ifndef NDEBUG
+      // only instantiate return value in debug mode (for the assert)
+      auto size =
+#endif
+      flatVectorForEach(v_i, f, offset + i*blockSize);
+      assert( ( size == blockSize ) and "we need the same size of each block in this vector type");
+    }
+
+    return vector.size()*blockSize;
   }
   else
   {
@@ -182,7 +208,7 @@ std::pair<std::size_t,std::size_t> flatMatrixForEach(Matrix&& matrix, F&& f, std
     else
     {
       std::size_t r = 0, c = 0;
-      std::size_t nRows, nCols;
+      std::size_t nRows = 0, nCols = 0;
 
       Hybrid::forEach(Dune::range(ForEach::rows(matrix)), [&](auto i) {
         c = 0;
