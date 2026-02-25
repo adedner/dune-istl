@@ -354,6 +354,9 @@ namespace Dune {
         else if (ordering == "metis") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_METIS);
         else if (ordering == "best") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_BEST);
         else if (ordering == "none") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_NONE);
+        #if defined(UMFPACK_VER) && (UMFPACK_VER >= UMFPACK_VER_CODE(6, 0))
+        else if (ordering == "metis_guard") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_METIS_GUARD);
+        #endif
         else DUNE_THROW(Dune::NotImplemented, "The UMFPACK ordering '" << ordering << "' is not implemented");
       }
       setMatrix(mat_);

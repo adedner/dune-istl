@@ -233,7 +233,12 @@ TestSuite runUMFPackWithConfig(std::size_t N)
   }
 
   // Each valid ordering string
-  for (auto ordering : std::vector<std::string>{"amd", "cholmod", "default", "best", "none", "metis"}) {
+  std::vector<std::string> orderings{"amd", "cholmod", "default", "best", "none", "metis"
+  #if defined(UMFPACK_VER) && (UMFPACK_VER >= UMFPACK_VER_CODE(6, 0))
+    , "metis_guard"
+  #endif
+  };
+  for (auto ordering : orderings) {
     Dune::ParameterTree config;
     config["umfpack_ordering"] = ordering;
     Dune::UMFPack<Matrix> solver(mat, config);
