@@ -333,7 +333,7 @@ namespace Dune {
      * umfpack_ordering  | The ordering method UMFPACK should use. Can be cholmod,
      *                   | default, amd, metis, best, or none. If this parameter
      *                   | is not provided, UMFPACK's default is used.
-     *                   | See the documention for UMFPACK_ORDERING in the UMFPACK
+     *                   | See the documentation for UMFPACK_ORDERING in the UMFPACK
      *                   | user guide for an explanation of the different variants.
      *
      * @throws Dune::NotImplemented if the umfpack_ordering in the \p config ParameterTree is not one
