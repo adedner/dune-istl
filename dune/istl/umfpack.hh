@@ -331,8 +331,9 @@ namespace Dune {
      * ------------------|------------
      * verbose           | The verbosity level. Default = 0
      * umfpack_ordering  | The ordering method UMFPACK should use. Can be cholmod,
-     *                   | default, amd, metis, best, or none. If this parameter
-     *                   | is not provided, UMFPACK's default is used.
+     *                   | default, amd, metis, best, none, or metis_guard (the last
+     *                   | is only available for UMFPACK versions >= 6.0). If this
+     *                   | parameter is not provided, UMFPACK's default is used.
      *                   | See the documentation for UMFPACK_ORDERING in the UMFPACK
      *                   | user guide for an explanation of the different variants.
      *
