@@ -5,4 +5,5 @@
 install(FILES
    counter.hh
    registry.hh
+   utility.hh
    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/istl/common)

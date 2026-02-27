@@ -18,6 +18,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/stdstreams.hh>
+#include <dune/istl/common/utility.hh>
 #include <dune/istl/solvertype.hh>
 #include <dune/istl/solverfactory.hh>
 
@@ -296,14 +297,14 @@ namespace Dune
      * That means that in each apply call forward and backward
      * substitutions take place (and no decomposition).
      * @param matrix The matrix of the system to solve.
-     * @param verbose If true some statistics are printed.
+     * @param verbosity If > 0 some statistics are printed.
      * @param reusevector Default value is true. If true the two vectors are allocate in
      * the first call to apply. These get resused in subsequent calls to apply
      * and are deallocated in the destructor. If false these vectors are allocated
      * at the beginning and deallocated at the end of each apply method. This allows
      * using the same instance of superlu from different threads.
      */
-    explicit SuperLU(const Matrix& matrix, bool verbose=false,
+    explicit SuperLU(const Matrix& mat, int verbosity=0,
                      bool reusevector=true);
 
 
@@ -314,11 +315,11 @@ namespace Dune
      *
      * ParameterTree Key | Meaning
      * ------------------|------------
-     * verbose           | The verbosity level. default=false
+     * verbosity         | The verbosity level. default=false
      * reuseVector       | Reuse initially allocated vectors in apply. default=true
     */
     SuperLU(const Matrix& matrix, const ParameterTree& config)
-      : SuperLU(matrix, config.get<bool>("verbose", false), config.get<bool>("reuseVector", true))
+      : SuperLU(matrix, Impl::getVerbosity(config), config.get<bool>("reuseVector", true))
     {}
 
     /**
@@ -360,7 +361,7 @@ namespace Dune
     template<class S>
     void setSubMatrix(const Matrix& mat, const S& rowIndexSet);
 
-    void setVerbosity(bool v);
+    void setVerbosity(int v);
 
     /**
      * @brief free allocated space.
@@ -388,7 +389,9 @@ namespace Dune
     char equed;
     void *work;
     int lwork;
-    bool first, verbose, reusevector;
+    bool first;
+    int verbosity;
+    bool reusevector;
   };
 
   template<typename M>
@@ -421,8 +424,8 @@ namespace Dune
 
   template<typename M>
   SuperLU<M>
-  ::SuperLU(const Matrix& mat_, bool verbose_, bool reusevector_)
-    : work(0), lwork(0), first(true), verbose(verbose_),
+  ::SuperLU(const Matrix& mat_, int verbosity_, bool reusevector_)
+    : work(0), lwork(0), first(true), verbosity(verbosity_),
       reusevector(reusevector_)
   {
     setMatrix(mat_);
@@ -430,13 +433,13 @@ namespace Dune
   }
   template<typename M>
   SuperLU<M>::SuperLU()
-    :    work(0), lwork(0),verbose(false),
+    :    work(0), lwork(0),verbosity(0),
       reusevector(false)
   {}
   template<typename M>
-  void SuperLU<M>::setVerbosity(bool v)
+  void SuperLU<M>::setVerbosity(int v)
   {
-    verbose=v;
+    verbosity=v;
   }
 
   template<typename M>
@@ -503,7 +506,7 @@ namespace Dune
                                   &L, &U, work, lwork, &B, &X, &rpg, &rcond, &ferr,
                                   &berr, &memusage, &stat, &info);
 
-    if(verbose) {
+    if(verbosity>0) {
       dinfo<<"LU factorization: dgssvx() returns info "<< info<<std::endl;
 
       auto nSuperLUCol = static_cast<SuperMatrix&>(mat).ncol;
@@ -621,7 +624,7 @@ namespace Dune
      */
     res.converged=true;
 
-    if(verbose) {
+    if(verbosity>0) {
 
       dinfo<<"Triangular solve: dgssvx() returns info "<< info<<std::endl;
 
@@ -686,7 +689,7 @@ namespace Dune
                                   &L, &U, work, lwork, mB, mX, &rpg, &rcond, &ferr, &berr,
                                   &memusage, &stat, &info);
 
-    if(verbose) {
+    if(verbosity>0) {
       dinfo<<"Triangular solve: dgssvx() returns info "<< info<<std::endl;
 
       auto nSuperLUCol = static_cast<SuperMatrix&>(mat).ncol;
@@ -748,8 +751,8 @@ namespace Dune
                                          ){
                              const auto& A = opTraits.getAssembledOpOrThrow(op);
                              const M& mat = A->getmat();
-                             int verbose = config.get("verbose", 0);
-                             return std::make_shared<Dune::SuperLU<M>>(mat,verbose);
+                             int verbosity = Impl::getVerbosity(config);
+                             return std::make_shared<Dune::SuperLU<M>>(mat,verbosity);
                            }
                          }
                          DUNE_THROW(UnsupportedType,
