@@ -240,7 +240,7 @@ TestSuite runUMFPackWithConfig(std::size_t N)
   };
   for (auto ordering : orderings) {
     Dune::ParameterTree config;
-    config["umfpack_ordering"] = ordering;
+    config["ordering"] = ordering;
     Dune::UMFPack<Matrix> solver(mat, config);
     checkSolve(solver, "ordering=" + ordering);
 
@@ -250,7 +250,7 @@ TestSuite runUMFPackWithConfig(std::size_t N)
   // Invalid ordering must throw Dune::NotImplemented
   {
     Dune::ParameterTree config;
-    config["umfpack_ordering"] = "invalid_ordering";
+    config["ordering"] = "invalid_ordering";
     bool threw = false;
     try {
       Dune::UMFPack<Matrix> solver(mat, config);

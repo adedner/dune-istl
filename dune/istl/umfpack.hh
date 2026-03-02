@@ -330,14 +330,14 @@ namespace Dune {
      * ParameterTree Key | Meaning
      * ------------------|------------
      * verbose           | The verbosity level. Default = 0
-     * umfpack_ordering  | The ordering method UMFPACK should use. Can be cholmod,
+     * ordering          | The ordering method UMFPACK should use. Can be cholmod,
      *                   | default, amd, metis, best, none, or metis_guard (the last
      *                   | is only available for UMFPACK versions >= 6.0). If this
      *                   | parameter is not provided, UMFPACK's default is used.
      *                   | See the documentation for UMFPACK_ORDERING in the UMFPACK
      *                   | user guide for an explanation of the different variants.
      *
-     * @throws Dune::NotImplemented if the umfpack_ordering in the \p config ParameterTree is not one
+     * @throws Dune::NotImplemented if the ordering in the \p config ParameterTree is not one
      *         of the options listed above.
     */
     UMFPack(const Matrix& mat_, const ParameterTree& config) : matrixIsLoaded_(false)
@@ -347,8 +347,8 @@ namespace Dune {
                     "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
       Caller::defaults(UMF_Control);
       setVerbosity(config.get<int>("verbose", 0));
-      if (config.hasKey("umfpack_ordering")) {
-        const auto &ordering = config["umfpack_ordering"];
+      if (config.hasKey("ordering")) {
+        const auto &ordering = config["ordering"];
         if (ordering == "cholmod") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_CHOLMOD);
         else if (ordering == "default") setOption(UMFPACK_ORDERING, UMFPACK_DEFAULT_ORDERING);
         else if (ordering == "amd") setOption(UMFPACK_ORDERING, UMFPACK_ORDERING_AMD);
