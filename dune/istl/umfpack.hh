@@ -856,8 +856,7 @@ namespace Dune {
                            if constexpr (UMFPackImpl::isValidBlock<OpTraits>::value) {
                              const auto& A = opTraits.getAssembledOpOrThrow(op);
                              const M& mat = A->getmat();
-                             int verbose = config.get("verbose", 0);
-                             return std::make_shared<Dune::UMFPack<M>>(mat,verbose);
+                             return std::make_shared<Dune::UMFPack<M>>(mat, config);
                            }
                          }
                          DUNE_THROW(UnsupportedType,
