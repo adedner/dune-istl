@@ -10,23 +10,15 @@
 #include <utility>
 #include <cmath>
 
-#if HAVE_PARMETIS
-// Explicitly use C linkage as scotch does not extern "C" in its headers.
-// Works because ParMETIS/METIS checks whether compiler is C++ and otherwise
-// does not use extern "C". Therefore no nested extern "C" will be created.
-extern "C"
-{
-#include <parmetis.h>
-}
-#endif
-
 #include <dune/common/timer.hh>
 #include <dune/common/enumset.hh>
+#include <dune/common/metis.hh>
 #include <dune/common/stdstreams.hh>
 #include <dune/common/parallel/mpitraits.hh>
 #include <dune/common/parallel/communicator.hh>
 #include <dune/common/parallel/indexset.hh>
 #include <dune/common/parallel/indicessyncer.hh>
+#include <dune/common/parallel/parmetis.hh>
 #include <dune/common/parallel/remoteindices.hh>
 #include <dune/common/rangeutilities.hh>
 
@@ -43,27 +35,6 @@ extern "C"
 
 namespace Dune
 {
-  namespace Metis
-  {
-    // Explicitly specify a real_t and idx_t for older (Par)METIS versions that do not
-    // provide these typedefs
-#if HAVE_PARMETIS && defined(REALTYPEWIDTH)
-    using real_t = ::real_t;
-#else
-    using real_t = float;
-#endif
-
-#if HAVE_PARMETIS && defined(IDXTYPEWIDTH)
-    using idx_t = ::idx_t;
-#elif HAVE_PARMETIS && defined(HAVE_SCOTCH_NUM_TYPE)
-    using idx_t = SCOTCH_Num;
-#elif HAVE_PARMETIS
-    using idx_t = int;
-#else
-    using idx_t = std::size_t;
-#endif
-  }
-
 
 #if HAVE_MPI
   /**
@@ -168,7 +139,7 @@ namespace Dune
       {
         return parmetisToDune.size();
       }
-      Metis::idx_t* vtxDist()
+      ParMetis::idx_t* vtxDist()
       {
         return &vtxDist_[0];
       }
@@ -178,7 +149,7 @@ namespace Dune
       std::vector<int> duneToParmetis;
       std::vector<int> parmetisToDune;
       // range of vertices for processor i: vtxdist[i] to vtxdist[i+1] (parmetis global)
-      std::vector<Metis::idx_t> vtxDist_;
+      std::vector<ParMetis::idx_t> vtxDist_;
     };
 
     template<class G, class OOComm>
@@ -641,7 +612,7 @@ namespace Dune
     class BaseEdgeFunctor
     {
     public:
-      BaseEdgeFunctor(Metis::idx_t* adj,const ParmetisDuneIndexMap& data)
+      BaseEdgeFunctor(ParMetis::idx_t* adj,const ParmetisDuneIndexMap& data)
         : i_(), adj_(adj), data_(data)
       {}
 
@@ -660,7 +631,7 @@ namespace Dune
 
     private:
       std::size_t i_;
-      Metis::idx_t* adj_;
+      ParMetis::idx_t* adj_;
       const ParmetisDuneIndexMap& data_;
     };
 
@@ -668,11 +639,11 @@ namespace Dune
     struct EdgeFunctor
       : public BaseEdgeFunctor
     {
-      EdgeFunctor(Metis::idx_t* adj, const ParmetisDuneIndexMap& data, std::size_t)
+      EdgeFunctor(ParMetis::idx_t* adj, const ParmetisDuneIndexMap& data, std::size_t)
         : BaseEdgeFunctor(adj, data)
       {}
 
-      Metis::idx_t* getWeights()
+      ParMetis::idx_t* getWeights()
       {
         return NULL;
       }
@@ -684,10 +655,10 @@ namespace Dune
       :  public BaseEdgeFunctor
     {
     public:
-      EdgeFunctor(Metis::idx_t* adj, const ParmetisDuneIndexMap& data, std::size_t s)
+      EdgeFunctor(ParMetis::idx_t* adj, const ParmetisDuneIndexMap& data, std::size_t s)
         : BaseEdgeFunctor(adj, data)
       {
-        weight_=new Metis::idx_t[s];
+        weight_=new ParMetis::idx_t[s];
       }
 
       template<class T>
@@ -696,7 +667,7 @@ namespace Dune
         weight_[index()]=edge.properties().depends() ? 3 : 1;
         BaseEdgeFunctor::operator()(edge);
       }
-      Metis::idx_t* getWeights()
+      ParMetis::idx_t* getWeights()
       {
         return weight_;
       }
@@ -705,7 +676,7 @@ namespace Dune
         weight_ = nullptr;
       }
     private:
-      Metis::idx_t* weight_;
+      ParMetis::idx_t* weight_;
     };
 
 
@@ -724,7 +695,7 @@ namespace Dune
      * @param ew Funcot to setup adjacency info.
      */
     template<class F, class G, class IS, class EW>
-    void getAdjArrays(G& graph, IS& indexSet, Metis::idx_t *xadj,
+    void getAdjArrays(G& graph, IS& indexSet, ParMetis::idx_t *xadj,
                       EW& ew)
     {
       int j=0;
@@ -781,7 +752,7 @@ namespace Dune
     bool correct=true;
 
     using std::signbit;
-    for(Metis::idx_t vtx=0; vtx<(Metis::idx_t)noVtx; ++vtx) {
+    for(T vtx=0; vtx<(T)noVtx; ++vtx) {
       if(static_cast<S>(xadj[vtx])>noEdges || signbit(xadj[vtx])) {
         std::cerr <<"Check graph: xadj["<<vtx<<"]="<<xadj[vtx]<<" (>"
                   <<noEdges<<") out of range!"<<std::endl;
@@ -793,7 +764,7 @@ namespace Dune
         correct=false;
       }
       // Check numbers in adjncy
-      for(Metis::idx_t i=xadj[vtx]; i< xadj[vtx+1]; ++i) {
+      for(T i=xadj[vtx]; i< xadj[vtx+1]; ++i) {
         if(signbit(adjncy[i]) || ((std::size_t)adjncy[i])>gnoVtx) {
           std::cerr<<" Edge "<<adjncy[i]<<" out of range ["<<0<<","<<noVtx<<")"
                    <<std::endl;
@@ -801,11 +772,11 @@ namespace Dune
         }
       }
       if(checkSymmetry) {
-        for(Metis::idx_t i=xadj[vtx]; i< xadj[vtx+1]; ++i) {
-          Metis::idx_t target=adjncy[i];
+        for(T i=xadj[vtx]; i< xadj[vtx+1]; ++i) {
+          T target=adjncy[i];
           // search for symmetric edge
           int found=0;
-          for(Metis::idx_t j=xadj[target]; j< xadj[target+1]; ++j)
+          for(T j=xadj[target]; j< xadj[target+1]; ++j)
             if(adjncy[j]==vtx)
               found++;
           if(found!=1) {
@@ -820,7 +791,7 @@ namespace Dune
 
   template<class M, class T1, class T2>
   bool commGraphRepartition(const M& mat, Dune::OwnerOverlapCopyCommunication<T1,T2>& oocomm,
-                            Metis::idx_t nparts,
+                            ParMetis::idx_t nparts,
                             std::shared_ptr<Dune::OwnerOverlapCopyCommunication<T1,T2>>& outcomm,
                             RedistributeInterface& redistInf,
                             bool verbose=false)
@@ -834,7 +805,7 @@ namespace Dune
     int* part = new int[1];
     part[0]=0;
 #else
-    Metis::idx_t* part = new Metis::idx_t[1]; // where all our data moves to
+    ParMetis::idx_t* part = new ParMetis::idx_t[1]; // where all our data moves to
 
     if(nparts>1) {
 
@@ -858,12 +829,12 @@ namespace Dune
         // The diagonal entries are the number of nodes on the process.
         // The offdiagonal entries are the number of edges leading to other processes.
 
-        Metis::idx_t *xadj=new Metis::idx_t[2];
-        Metis::idx_t *vtxdist=new Metis::idx_t[oocomm.communicator().size()+1];
-        Metis::idx_t *adjncy=new Metis::idx_t[noNeighbours];
+        ParMetis::idx_t *xadj=new ParMetis::idx_t[2];
+        ParMetis::idx_t *vtxdist=new ParMetis::idx_t[oocomm.communicator().size()+1];
+        ParMetis::idx_t *adjncy=new ParMetis::idx_t[noNeighbours];
 #ifdef USE_WEIGHTS
-        Metis::idx_t *vwgt = 0;
-        Metis::idx_t *adjwgt = 0;
+        ParMetis::idx_t *vwgt = 0;
+        ParMetis::idx_t *adjwgt = 0;
 #endif
 
         // each process has exactly one vertex!
@@ -891,7 +862,7 @@ namespace Dune
         //     }
         //   }
 
-        // std::map<int,Metis::idx_t> edgecount; // edges to other processors
+        // std::map<int,ParMetis::idx_t> edgecount; // edges to other processors
         // typedef typename M::ConstRowIterator RIter;
         // typedef typename M::ConstColIterator CIter;
 
@@ -903,14 +874,14 @@ namespace Dune
 
         // setup edge and weight pattern
 
-        Metis::idx_t* adjp=adjncy;
+        ParMetis::idx_t* adjp=adjncy;
 
 #ifdef USE_WEIGHTS
-        vwgt   = new Metis::idx_t[1];
+        vwgt   = new ParMetis::idx_t[1];
         vwgt[0]= mat.N(); // weight is number of rows TODO: Should actually be the nonzeros.
 
-        adjwgt = new Metis::idx_t[noNeighbours];
-        Metis::idx_t* adjwp=adjwgt;
+        adjwgt = new ParMetis::idx_t[noNeighbours];
+        ParMetis::idx_t* adjwp=adjwgt;
 #endif
 
         for(auto n= oocomm.remoteIndices().begin(); n !=  oocomm.remoteIndices().end();
@@ -927,13 +898,13 @@ namespace Dune
                             vtxdist[oocomm.communicator().size()],
                             noNeighbours, xadj, adjncy, false));
 
-        [[maybe_unused]] Metis::idx_t wgtflag=0;
-        Metis::idx_t numflag=0;
-        Metis::idx_t edgecut;
+        [[maybe_unused]] ParMetis::idx_t wgtflag=0;
+        ParMetis::idx_t numflag=0;
+        ParMetis::idx_t edgecut;
 #ifdef USE_WEIGHTS
         wgtflag=3;
 #endif
-        Metis::real_t *tpwgts = new Metis::real_t[nparts];
+        ParMetis::real_t *tpwgts = new ParMetis::real_t[nparts];
         for(int i=0; i<nparts; ++i)
           tpwgts[i]=1.0/nparts;
         MPI_Comm comm=oocomm.communicator();
@@ -958,7 +929,7 @@ namespace Dune
         time.reset();
 
 #ifdef PARALLEL_PARTITION
-        Metis::real_t ubvec = 1.15;
+        ParMetis::real_t ubvec = 1.15;
         int ncon=1;
         int options[5] ={ 0,1,15,0,0};
 
@@ -1016,7 +987,7 @@ namespace Dune
             novs[i]=vtxdist[i+1]-vtxdist[i];
           }
 
-          Metis::idx_t *so= vtxdist;
+          ParMetis::idx_t *so= vtxdist;
           int offset = 0;
           for(int *xcurr = xdispl, *vcurr = vdispl, *end=vdispl+oocomm.communicator().size();
               vcurr!=end; ++vcurr, ++xcurr, ++so, ++offset) {
@@ -1060,17 +1031,17 @@ namespace Dune
         time1.reset();
         // Communicate data
 
-        MPI_Allgatherv(xadj,2,MPITraits<Metis::idx_t>::getType(),
+        MPI_Allgatherv(xadj,2,MPITraits<ParMetis::idx_t>::getType(),
                        gxadj,noxs,xdispl,MPITraits<Metis::idx_t>::getType(),
                        comm);
-        MPI_Allgatherv(adjncy,noNeighbours,MPITraits<Metis::idx_t>::getType(),
+        MPI_Allgatherv(adjncy,noNeighbours,MPITraits<ParMetis::idx_t>::getType(),
                        gadjncy,noedges,displ,MPITraits<Metis::idx_t>::getType(),
                        comm);
 #ifdef USE_WEIGHTS
-        MPI_Allgatherv(adjwgt,noNeighbours,MPITraits<Metis::idx_t>::getType(),
+        MPI_Allgatherv(adjwgt,noNeighbours,MPITraits<ParMetis::idx_t>::getType(),
                        gadjwgt,noedges,displ,MPITraits<Metis::idx_t>::getType(),
                        comm);
-        MPI_Allgatherv(vwgt,localNoVtx,MPITraits<Metis::idx_t>::getType(),
+        MPI_Allgatherv(vwgt,localNoVtx,MPITraits<ParMetis::idx_t>::getType(),
                        gvwgt,novs,vdispl,MPITraits<Metis::idx_t>::getType(),
                        comm);
 #endif
@@ -1149,7 +1120,7 @@ namespace Dune
         }
         // Scatter result
         MPI_Scatter(gpart, 1, MPITraits<Metis::idx_t>::getType(), part, 1,
-                    MPITraits<Metis::idx_t>::getType(), 0, comm);
+                    MPITraits<ParMetis::idx_t>::getType(), 0, comm);
 
         {
           // release remaining memory
@@ -1225,7 +1196,7 @@ namespace Dune
    * @param verbose Verbosity flag to give out additional information.
    */
   template<class G, class T1, class T2>
-  bool graphRepartition(const G& graph, Dune::OwnerOverlapCopyCommunication<T1,T2>& oocomm, Metis::idx_t nparts,
+  bool graphRepartition(const G& graph, Dune::OwnerOverlapCopyCommunication<T1,T2>& oocomm, ParMetis::idx_t nparts,
                         std::shared_ptr<Dune::OwnerOverlapCopyCommunication<T1,T2>>& outcomm,
                         RedistributeInterface& redistInf,
                         bool verbose=false)
@@ -1251,7 +1222,7 @@ namespace Dune
     // MPI variables
     int mype = oocomm.communicator().rank();
 
-    assert(nparts<=static_cast<Metis::idx_t>(oocomm.communicator().size()));
+    assert(nparts<=static_cast<ParMetis::idx_t>(oocomm.communicator().size()));
 
     int myDomain = -1;
 
@@ -1278,7 +1249,7 @@ namespace Dune
     // Global communications are necessary
     // The parmetis global identifiers for the owner vertices.
     ParmetisDuneIndexMap indexMap(graph,oocomm);
-    Metis::idx_t *part = new Metis::idx_t[indexMap.numOfOwnVtx()];
+    ParMetis::idx_t *part = new ParMetis::idx_t[indexMap.numOfOwnVtx()];
     for(std::size_t i=0; i < indexMap.numOfOwnVtx(); ++i)
       part[i]=mype;
 
@@ -1292,8 +1263,8 @@ namespace Dune
 
     if(nparts>1) {
       // Create the xadj and adjncy arrays
-      Metis::idx_t *xadj = new  Metis::idx_t[indexMap.numOfOwnVtx()+1];
-      Metis::idx_t *adjncy = new Metis::idx_t[graph.noEdges()];
+      ParMetis::idx_t *xadj = new  ParMetis::idx_t[indexMap.numOfOwnVtx()+1];
+      ParMetis::idx_t *adjncy = new ParMetis::idx_t[graph.noEdges()];
       EdgeFunctor<G> ef(adjncy, indexMap, graph.noEdges());
       getAdjArrays<OwnerSet>(graph, oocomm.globalLookup(), xadj, ef);
 
@@ -1301,12 +1272,12 @@ namespace Dune
       // 2) Call ParMETIS
       //
       //
-      Metis::idx_t numflag=0, wgtflag=0, options[3], edgecut=0, ncon=1;
+      ParMetis::idx_t numflag=0, wgtflag=0, options[3], edgecut=0, ncon=1;
       //float *tpwgts = NULL;
-      Metis::real_t *tpwgts = new Metis::real_t[nparts];
+      ParMetis::real_t *tpwgts = new ParMetis::real_t[nparts];
       for(int i=0; i<nparts; ++i)
         tpwgts[i]=1.0/nparts;
-      Metis::real_t ubvec[1];
+      ParMetis::real_t ubvec[1];
       options[0] = 0; // 0=default, 1=options are defined in [1]+[2]
 #ifdef DEBUG_REPART
       options[1] = 3; // show info: 0=no message
