@@ -23,6 +23,7 @@ variables:
   OMP_NUM_THREADS: 1
   # Allow OpenMPI to oversubscribe
   PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
+  FOO: 1
 
 
 # Check for spelling mistakes in text
