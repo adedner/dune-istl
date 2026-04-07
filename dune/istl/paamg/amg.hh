@@ -809,28 +809,43 @@ namespace Dune
       typedef typename Matrix::ConstRowIterator RowIter;
       typedef typename Matrix::ConstColIterator ColIter;
       typedef typename Matrix::block_type Block;
-      Block zero;
-      zero=typename Matrix::field_type();
+
+      std::optional<Block> diagonal;
+      std::optional<typename Domain::block_type> one;
+      std::optional<typename Range::block_type> v;
 
       const Matrix& mat=matrices_->matrices().finest()->getmat();
       for(RowIter row=mat.begin(); row!=mat.end(); ++row) {
         bool isDirichlet = true;
-        bool hasDiagonal = false;
-        Block diagonal{};
+        diagonal = std::nullopt;
         for(ColIter col=row->begin(); col!=row->end(); ++col) {
+          one = std::nullopt;
           if(row.index()==col.index()) {
-            diagonal = *col;
-            hasDiagonal = true;
+            diagonal.emplace(*col);
           }else{
-            if(*col!=zero)
+            if (not one.has_value()) {
+              one.emplace(x[col.index()]);
+              one.value() = typename FieldTraits<Domain>::field_type(1);
+            }
+            v.emplace(b[row.index()]);
+            auto&& oneEntry = Impl::asVector(one.value());
+            auto&& vEntry = Impl::asVector(v.value());
+            Impl::asMatrix(*col).mv(oneEntry, vEntry);
+            if (vEntry.two_norm() > 1e-14)
               isDirichlet = false;
           }
         }
-        if(isDirichlet && hasDiagonal)
+        if(isDirichlet && diagonal)
         {
           auto&& xEntry = Impl::asVector(x[row.index()]);
           auto&& bEntry = Impl::asVector(b[row.index()]);
-          Impl::asMatrix(diagonal).solve(xEntry, bEntry);
+          overload(
+            [&]<class D>(const D& d) requires requires {Impl::asMatrix(d).solve(xEntry, bEntry);} {
+              Impl::asMatrix(d).solve(xEntry, bEntry);
+            },
+            [&]<class D>(const D&){
+              // No direct solve available for this block type, so leave system as it is.
+            })(*diagonal);
         }
       }
 
