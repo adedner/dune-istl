@@ -18,6 +18,7 @@
 #include <dune/istl/solvertype.hh>
 #include <dune/istl/solverregistry.hh>
 #include <dune/common/typetraits.hh>
+#include <dune/common/classname.hh>
 #include <dune/common/exceptions.hh>
 #include <dune/common/scalarvectorview.hh>
 #include <dune/common/scalarmatrixview.hh>
@@ -241,13 +242,7 @@ namespace Dune
       template<class Norm>
       void createCriterionAndHierarchies(std::shared_ptr<const Operator> matrixptr,
                                          const PI& pinfo, const Norm&,
-                                         const ParameterTree& configuration,
-                                         std::true_type compiles = std::true_type());
-      template<class Norm>
-      void createCriterionAndHierarchies(std::shared_ptr<const Operator> matrixptr,
-                                         const PI& pinfo, const Norm&,
-                                         const ParameterTree& configuration,
-                                         std::false_type);
+                                         const ParameterTree& configuration);
       /**
        * @brief Helper function to create hierarchies with settings from parameter tree.
        * @param criterion Coarsen criterion to configure and use
@@ -474,25 +469,30 @@ namespace Dune
         using real_type = typename FieldTraits<field_type>::real_type;
         std::is_convertible<field_type, real_type> compiles;
 
-        switch (index)
+        if constexpr (compiles)
         {
-        case 0:
-          createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<0>(), configuration, compiles);
-          break;
-        case 1:
-          createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<1>(), configuration, compiles);
-          break;
-        case 2:
-          createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<2>(), configuration, compiles);
-          break;
-        case 3:
-          createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<3>(), configuration, compiles);
-          break;
-        case 4:
-          createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<4>(), configuration, compiles);
-          break;
-        default:
-          DUNE_THROW(InvalidStateException, "Currently strengthIndex>4 is not supported.");
+          switch (index)
+          {
+          case 0:
+            createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<0>(), configuration);
+            break;
+          case 1:
+            createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<1>(), configuration);
+            break;
+          case 2:
+            createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<2>(), configuration);
+            break;
+          case 3:
+            createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<3>(), configuration);
+            break;
+          case 4:
+            createCriterionAndHierarchies(matrixptr, pinfo, Diagonal<4>(), configuration);
+            break;
+          default:
+            DUNE_THROW(InvalidStateException, "Currently strengthIndex>4 is not supported.");
+          }
+        } else {
+          DUNE_THROW(InvalidStateException, "Diagonal strength measure requires conversion from matrix field type to real type.");
         }
       }
       else if (normName == "rowsum")
@@ -507,16 +507,7 @@ namespace Dune
 
   template<class M, class X, class S, class PI, class A>
   template<class Norm>
-  void AMG<M,X,S,PI,A>::createCriterionAndHierarchies(std::shared_ptr<const Operator> matrixptr, const PI& pinfo, const Norm&, const ParameterTree& configuration, std::false_type)
-  {
-    DUNE_THROW(InvalidStateException, "Strength of connection measure does not support this type ("
-               << className<typename M::field_type>() << ") as it is lacking a conversion to"
-               << className<typename FieldTraits<typename M::field_type>::real_type>() << ".");
-  }
-
-  template<class M, class X, class S, class PI, class A>
-  template<class Norm>
-  void AMG<M,X,S,PI,A>::createCriterionAndHierarchies(std::shared_ptr<const Operator> matrixptr, const PI& pinfo, const Norm&, const ParameterTree& configuration, std::true_type)
+  void AMG<M,X,S,PI,A>::createCriterionAndHierarchies(std::shared_ptr<const Operator> matrixptr, const PI& pinfo, const Norm&, const ParameterTree& configuration)
   {
     if (configuration.get<bool>("criterionSymmetric", true))
       {
