@@ -972,6 +972,8 @@ namespace Dune
           ++levelContext.aggregates;
         }
         // prepare the update on the next level
+        *levelContext.update=*levelContext.rhs;
+        *levelContext.lhs=*levelContext.rhs;
         *levelContext.update=0;
       }
       return processNextLevel;
