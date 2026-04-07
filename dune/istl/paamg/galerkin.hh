@@ -9,14 +9,78 @@
 #include "pinfo.hh"
 #include <dune/common/poolallocator.hh>
 #include <dune/common/enumset.hh>
+#include <dune/istl/matrixindexset.hh>
+#include <unordered_map>
 #include <set>
 #include <limits>
 #include <algorithm>
+#include <type_traits>
 
 namespace Dune
 {
   namespace Amg
   {
+    namespace Detail {
+      template<class T>
+      struct IsBCRSMatrix : std::false_type {};
+
+      template<class B, class A>
+      struct IsBCRSMatrix<BCRSMatrix<B, A>> : std::true_type {};
+
+      template<class T>
+      inline constexpr bool isBCRSMatrix_v = IsBCRSMatrix<T>::value;
+
+      template<class M, class V>
+      void initializeCoarse(const M& fine, const AggregatesMap<V>& aggregates, M& coarse)
+      {
+        using BlockType = typename M::block_type;
+        using FieldType = typename M::field_type;
+
+        if constexpr (isBCRSMatrix_v<BlockType>) {
+          struct PairHash {
+            std::size_t operator()(const std::pair<std::size_t, std::size_t>& p) const noexcept {
+              // Combine with a Knuth multiplicative constant to reduce collisions.
+              return std::hash<std::size_t>{}(p.first) ^ (std::hash<std::size_t>{}(p.second) * 2654435761ULL);
+            }
+          };
+
+          // create a pattern for each block size occurring in the matrix and store the corresponding block index sets
+          std::unordered_map<std::pair<std::size_t, std::size_t>, MatrixIndexSet, PairHash> blockPatterns;
+          using RowIterator = typename M::ConstIterator;
+          for (auto&& [fine_i, i] : sparseRange(fine))
+            if (aggregates[i] != AggregatesMap<V>::ISOLATED) {
+              for (auto&& [fine_ij, j] : sparseRange(fine_i))
+                if (aggregates[j] != AggregatesMap<V>::ISOLATED) {
+                  auto& mis = blockPatterns[{fine_ij.N(), fine_ij.M()}];
+
+                  if (mis.rows() == 0 || mis.cols() == 0)
+                    mis.resize(fine_ij.N(), fine_ij.M());
+
+                  for (auto [fine_ijk, k] : sparseRange(fine_ij))
+                    for (auto [fine_ijkl, l] : sparseRange(fine_ijk))
+                      mis.add(k, l);
+                }
+            }
+
+          // create the coarse block matrix for each block size
+          std::unordered_map<std::pair<std::size_t, std::size_t>, BlockType, PairHash> commonBlocks;
+          for (auto& [idx, mis] : blockPatterns)
+            mis.exportIdx(commonBlocks[idx]);
+
+          // initialize the coarse matrix using the common blocks (this allows to reuse the same block structure for all coarse blocks of the same size)
+          for (auto&& [fine_i, i] : sparseRange(fine))
+            if (aggregates[i] != AggregatesMap<V>::ISOLATED) {
+              for (auto&& [fine_ij, j] : sparseRange(fine_i))
+                if (aggregates[j] != AggregatesMap<V>::ISOLATED) {
+                  const auto coarseRow = aggregates[i];
+                  const auto coarseCol = aggregates[j];
+                  coarse[coarseRow][coarseCol] = commonBlocks[{fine_ij.N(), fine_ij.M()}];
+                }
+            }
+        }
+      }
+    } // namespace Detail
+
     /**
      * @addtogroup ISTL_PAAMG
      *
@@ -603,7 +667,7 @@ namespace Dune
            <<std::endl;
 
       delete[] overlapVertices;
-
+      Detail::initializeCoarse(fineGraph.matrix(), aggregates, *coarseMatrix);
       return coarseMatrix;
     }
 
@@ -635,6 +699,7 @@ namespace Dune
       dinfo<<"Matrix row: min="<<sparsityBuilder.minRowSize()<<" max="
            <<sparsityBuilder.maxRowSize()<<" average="
            <<static_cast<double>(sparsityBuilder.sumRowSize())/coarseMatrix->N()<<std::endl;
+      Detail::initializeCoarse(fineGraph.matrix(), aggregates, *coarseMatrix);
       return coarseMatrix;
     }
 
@@ -662,7 +727,7 @@ namespace Dune
 
       // get the right diagonal matrix values on copy lines from owner processes
       typedef typename M::block_type BlockType;
-      std::vector<BlockType> rowsize(coarse.N(),BlockType(0));
+      std::vector<BlockType> rowsize(coarse.N(),BlockType());
       for (RowIterator row = coarse.begin(); row != coarse.end(); ++row)
         rowsize[row.index()]=coarse[row.index()][row.index()];
       pinfo.copyOwnerToAll(rowsize,rowsize);
