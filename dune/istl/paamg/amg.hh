@@ -569,7 +569,7 @@ namespace Dune
         else if ( mode == "atonce" )
           criterion.setAccumulate(AccumulationMode::atOnceAccu);
         else if ( mode == "successive")
-          criterion.setCoarsenTarget (AccumulationMode::successiveAccu);
+          criterion.setAccumulate(AccumulationMode::successiveAccu);
         else
           DUNE_THROW(InvalidSolverFactoryConfiguration, "Parameter accumulationMode does not allow value "
                      << mode <<".");
