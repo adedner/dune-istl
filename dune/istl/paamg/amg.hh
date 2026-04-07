@@ -103,12 +103,27 @@ namespace Dune
 
       /**
        * @brief Construct a new amg with a specific coarse solver.
-       * @param matrices The already set-up matrix hierarchy.
-       * @param coarseSolver The set up solver to use on the coarse
+       * @param matrices Pointer to already set-up matrix hierarchy.
+       * @param coarseSolver Pointer to the set up solver to use on the coarse
        * grid, must match the coarse matrix in the matrix hierarchy.
        * @param smootherArgs The  arguments needed for thesmoother to use
        * for pre and post smoothing.
        * @param parms The parameters for the AMG.
+       */
+      AMG(std::shared_ptr<OperatorHierarchy> matrices, std::shared_ptr<CoarseSolver> coarseSolver,
+          const SmootherArgs& smootherArgs, const Parameters& parms);
+
+      /**
+       * @brief Construct a new amg with a specific coarse solver.
+       * @param matrices Reference to already set-up matrix hierarchy.
+       * @param coarseSolver Reference to the set up solver to use on the coarse
+       * grid, must match the coarse matrix in the matrix hierarchy.
+       * @param smootherArgs The  arguments needed for thesmoother to use
+       * for pre and post smoothing.
+       * @param parms The parameters for the AMG.
+       *
+       * @warning This constructor will not take ownership of the matrix hierarchy and the coarse solver,
+       * so they have to be kept alive by the user for the whole lifetime of the AMG object.
        */
       AMG(OperatorHierarchy& matrices, CoarseSolver& coarseSolver,
           const SmootherArgs& smootherArgs, const Parameters& parms);
@@ -399,25 +414,33 @@ namespace Dune
     {}
 
     template<class M, class X, class S, class PI, class A>
-    AMG<M,X,S,PI,A>::AMG(OperatorHierarchy& matrices, CoarseSolver& coarseSolver,
+    AMG<M,X,S,PI,A>::AMG(std::shared_ptr<OperatorHierarchy> matrices, std::shared_ptr<CoarseSolver> coarseSolver,
                          const SmootherArgs& smootherArgs,
                          const Parameters& parms)
-      : matrices_(stackobject_to_shared_ptr(matrices)), smootherArgs_(smootherArgs),
-        smoothers_(new Hierarchy<Smoother,A>), solver_(&coarseSolver),
+      : matrices_(std::move(matrices)), smootherArgs_(smootherArgs),
+        smoothers_(std::make_shared<Hierarchy<Smoother,A>>()), solver_(std::move(coarseSolver)),
         rhs_(), lhs_(), update_(), scalarProduct_(0),
         gamma_(parms.getGamma()), preSteps_(parms.getNoPreSmoothSteps()),
         postSteps_(parms.getNoPostSmoothSteps()), buildHierarchy_(false),
         additive(parms.getAdditive()), coarsesolverconverged(true),
         coarseSmoother_(),
-// #warning should category be retrieved from matrices?
-        category_(SolverCategory::category(*smoothers_->coarsest())),
         verbosity_(parms.debugLevel())
     {
       assert(matrices_->isBuilt());
 
       // build the necessary smoother hierarchies
       matrices_->coarsenSmoother(*smoothers_, smootherArgs_);
+
+      // #warning should category be retrieved from matrices?
+      category_ = SolverCategory::category(*smoothers_->coarsest());
     }
+
+    template<class M, class X, class S, class PI, class A>
+    AMG<M,X,S,PI,A>::AMG(OperatorHierarchy& matrices, CoarseSolver& coarseSolver,
+                         const SmootherArgs& smootherArgs,
+                         const Parameters& parms)
+      : AMG(stackobject_to_shared_ptr(matrices), stackobject_to_shared_ptr(coarseSolver), smootherArgs, parms)
+    {}
 
     template<class M, class X, class S, class PI, class A>
     template<class C>
@@ -426,7 +449,7 @@ namespace Dune
                          const SmootherArgs& smootherArgs,
                          const PI& pinfo)
       : smootherArgs_(smootherArgs),
-        smoothers_(new Hierarchy<Smoother,A>), solver_(),
+        smoothers_(std::make_shared<Hierarchy<Smoother,A>>()), solver_(),
         rhs_(), lhs_(), update_(), scalarProduct_(),
         gamma_(criterion.getGamma()), preSteps_(criterion.getNoPreSmoothSteps()),
         postSteps_(criterion.getNoPostSmoothSteps()), buildHierarchy_(true),
@@ -448,7 +471,7 @@ namespace Dune
     AMG<M,X,S,PI,A>::AMG(std::shared_ptr<const Operator> matrixptr,
                          const ParameterTree& configuration,
                          const ParallelInformation& pinfo) :
-      smoothers_(new Hierarchy<Smoother,A>),
+      smoothers_(std::make_shared<Hierarchy<Smoother,A>>()),
       solver_(), rhs_(), lhs_(), update_(), scalarProduct_(), buildHierarchy_(true),
       coarsesolverconverged(true), coarseSmoother_(),
       category_(SolverCategory::category(pinfo))
