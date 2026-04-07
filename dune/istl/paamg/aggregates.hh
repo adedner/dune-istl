@@ -1380,7 +1380,8 @@ namespace Dune
        * @return A vertex of neighbouring aggregate the vertex is allowed to
        * be added to.
        */
-      Vertex mergeNeighbour(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates) const;
+      template<class M>
+      Vertex mergeNeighbour(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const M& m) const;
 
       /**
        * @brief Find a nonisolated connected aggregate.
@@ -1401,10 +1402,10 @@ namespace Dune
        * @param aggregates The mapping of he vertices onto the aggregates.
        * @param c The coarsen criterium.
        */
-      template<class C>
-      void growAggregate(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const C& c);
-      template<class C>
-      void growIsolatedAggregate(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const C& c);
+      template<class C, class M>
+      void growAggregate(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const C& c, const M& m);
+      template<class C, class M>
+      void growIsolatedAggregate(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const C& c, const M& m);
     };
 
 #ifndef DOXYGEN
@@ -1839,6 +1840,11 @@ namespace Dune
         typedef typename Matrix::row_type Row;
 
         const Row& row = matrix[*vertex];
+        auto sameBlockShape = [&matrix, i = *vertex](auto j) {
+          const auto& d_ii = Impl::asMatrix(matrix[i][i]);
+          const auto& d_jj = Impl::asMatrix(matrix[j][j]);
+          return d_ii.N() == d_jj.N() && d_ii.M() == d_jj.M();
+        };
 
         // Tell the criterion what row we will examine now
         // This might for example be used for calculating the
@@ -1854,7 +1860,7 @@ namespace Dune
         using std::max;
         if(firstlevel) {
           for(ColIterator col = row.begin(); col != end; ++col)
-            if(col.index()!=*vertex) {
+            if(col.index()!=*vertex && sameBlockShape(col.index())) {
               criterion.examine(col);
               absoffdiag = max(absoffdiag, Impl::asMatrix(*col).frobenius_norm());
             }
@@ -1864,7 +1870,7 @@ namespace Dune
         }
         else
           for(ColIterator col = row.begin(); col != end; ++col)
-            if(col.index()!=*vertex)
+            if(col.index()!=*vertex && sameBlockShape(col.index()))
               criterion.examine(col);
 
         // reset the vertex properties
@@ -1883,6 +1889,8 @@ namespace Dune
             // Move to the right column.
             while(col.index()!=edge.target())
               ++col;
+            if(!sameBlockShape(edge.target()))
+              continue;
             criterion.examine(graph, edge, col);
           }
         }
@@ -2180,12 +2188,21 @@ namespace Dune
     }
 
     template<class G>
-    inline typename G::VertexDescriptor Aggregator<G>::mergeNeighbour(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates) const
+    template<class M>
+    inline typename G::VertexDescriptor Aggregator<G>::mergeNeighbour(const Vertex& vertex, const AggregatesMap<Vertex>& aggregates, const M& m) const
     {
       typedef typename MatrixGraph::ConstEdgeIterator Iterator;
+      auto sameDiagonalBlockShape = [&m](const Vertex& i, const Vertex& j) {
+        const auto& d_ii = Impl::asMatrix(m[i][i]);
+        const auto& d_jj = Impl::asMatrix(m[j][j]);
+        return d_ii.N() == d_jj.N() && d_ii.M() == d_jj.M();
+      };
 
       Iterator end = graph_->endEdges(vertex);
       for(Iterator edge = graph_->beginEdges(vertex); edge != end; ++edge) {
+        if(!sameDiagonalBlockShape(vertex, edge.target()))
+          continue;
+
         if(aggregates[edge.target()] != AggregatesMap<Vertex>::UNAGGREGATED &&
            graph_->getVertexProperties(edge.target()).isolated() == graph_->getVertexProperties(edge.source()).isolated()) {
           if( graph_->getVertexProperties(vertex).isolated() ||
@@ -2241,9 +2258,15 @@ namespace Dune
     }
 
     template<class G>
-    template<class C>
-    void Aggregator<G>::growIsolatedAggregate(const Vertex& seed, const AggregatesMap<Vertex>& aggregates, const C& c)
+    template<class C, class M>
+    void Aggregator<G>::growIsolatedAggregate(const Vertex& seed, const AggregatesMap<Vertex>& aggregates, const C& c, const M& m)
     {
+      auto sameDiagonalBlockShape = [&m](const Vertex& i, const Vertex& j) {
+        const auto& d_ii = Impl::asMatrix(m[i][i]);
+        const auto& d_jj = Impl::asMatrix(m[j][j]);
+        return d_ii.N() == d_jj.N() && d_ii.M() == d_jj.M();
+      };
+
       SLList<Vertex> connectedAggregates;
       nonisoNeighbourAggregate(seed, aggregates,connectedAggregates);
 
@@ -2256,6 +2279,9 @@ namespace Dune
         typedef typename std::vector<Vertex>::const_iterator Iterator;
 
         for(Iterator vertex = front_.begin(); vertex != front_.end(); ++vertex) {
+          if(!sameDiagonalBlockShape(seed, *vertex))
+            continue;
+
           if(distance(*vertex, aggregates)>c.maxDistance())
             continue; // distance of proposes aggregate too big
 
@@ -2291,10 +2317,15 @@ namespace Dune
     }
 
     template<class G>
-    template<class C>
-    void Aggregator<G>::growAggregate(const Vertex& seed, const AggregatesMap<Vertex>& aggregates, const C& c)
+    template<class C, class M>
+    void Aggregator<G>::growAggregate(const Vertex& seed, const AggregatesMap<Vertex>& aggregates, const C& c, const M& m)
     {
       using std::min;
+      auto sameDiagonalBlockShape = [&m](const Vertex& i, const Vertex& j) {
+        const auto& d_ii = Impl::asMatrix(m[i][i]);
+        const auto& d_jj = Impl::asMatrix(m[j][j]);
+        return d_ii.N() == d_jj.N() && d_ii.M() == d_jj.M();
+      };
 
       std::size_t distance_ =0;
       while(aggregate_->size() < c.minAggregateSize()&& distance_<c.maxDistance()) {
@@ -2307,6 +2338,9 @@ namespace Dune
         typedef typename std::vector<Vertex>::const_iterator Iterator;
 
         for(Iterator vertex = front_.begin(); vertex != front_.end(); ++vertex) {
+          if(!sameDiagonalBlockShape(seed, *vertex))
+            continue;
+
           // Only nonisolated nodes are considered
           if(graph_->getVertexProperties(*vertex).isolated())
             continue;
@@ -2461,15 +2495,20 @@ namespace Dune
             continue;
           }else{
             aggregate_->seed(seed);
-            growIsolatedAggregate(seed, aggregates, c);
+            growIsolatedAggregate(seed, aggregates, c, m);
           }
         }else{
           aggregate_->seed(seed);
-          growAggregate(seed, aggregates, c);
+          growAggregate(seed, aggregates, c, m);
         }
 
         /* The rounding step. */
         while(!(graph.getVertexProperties(seed).isolated()) && aggregate_->size() < c.maxAggregateSize()) {
+          auto sameDiagonalBlockShape = [&m](const Vertex& i, const Vertex& j) {
+            const auto& d_ii = Impl::asMatrix(m[i][i]);
+            const auto& d_jj = Impl::asMatrix(m[j][j]);
+            return d_ii.N() == d_jj.N() && d_ii.M() == d_jj.M();
+          };
 
           std::vector<Vertex> candidates;
           candidates.reserve(30);
@@ -2477,6 +2516,8 @@ namespace Dune
           typedef typename std::vector<Vertex>::const_iterator Iterator;
 
           for(Iterator vertex = front_.begin(); vertex != front_.end(); ++vertex) {
+            if(!sameDiagonalBlockShape(seed, *vertex))
+              continue;
 
             if(graph.getVertexProperties(*vertex).isolated())
               continue; // No isolated nodes here
@@ -2512,7 +2553,7 @@ namespace Dune
         // try to merge aggregates consisting of only one nonisolated vertex with other aggregates
         if(aggregate_->size()==1 && c.maxAggregateSize()>1) {
           if(!graph.getVertexProperties(seed).isolated()) {
-            Vertex mergedNeighbour = mergeNeighbour(seed, aggregates);
+            Vertex mergedNeighbour = mergeNeighbour(seed, aggregates, m);
 
             if(mergedNeighbour != AggregatesMap<Vertex>::UNAGGREGATED) {
               // assign vertex to the neighbouring cluster
