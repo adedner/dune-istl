@@ -44,6 +44,8 @@ endif()
 # add an executable without SuperLU/UMFPack
 dune_add_test(NAME amgtest SOURCES amgtest.cc)
 
+dune_add_test(NAME dynamicblockamgtest SOURCES dynamicblockamgtest.cc)
+
 dune_add_test(NAME fastamg SOURCES fastamg.cc)
 
 if(SuperLU_FOUND)
