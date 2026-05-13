@@ -407,6 +407,7 @@ namespace Dune
     void presmooth(LevelContext& levelContext, size_t steps)
     {
         for(std::size_t i=0; i < steps; ++i) {
+          *levelContext.lhs=*levelContext.rhs;
           *levelContext.lhs=0;
           SmootherApplier<typename LevelContext::SmootherType>
             ::preSmooth(*levelContext.smoother, *levelContext.lhs,
