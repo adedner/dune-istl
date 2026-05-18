@@ -1071,7 +1071,7 @@ namespace Dune {
       }
 
       //! return true if column index is in row
-      bool contains (size_type j)
+      bool contains (size_type j) const
       {
         return pattern.contains(j);
       }
