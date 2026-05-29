@@ -7,13 +7,21 @@
 
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <iostream>
 #include <iomanip>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 
-#include <dune/common/simd/simd.hh>
+#include <dune/common/exceptions.hh>
+#include <dune/common/hybridutilities.hh>
+#include <dune/common/indices.hh>
 #include <dune/common/parametertree.hh>
+#include <dune/common/shared_ptr.hh>
+#include <dune/common/simd/simd.hh>
+#include <dune/common/tuplevector.hh>
 
 #include <dune/istl/solverregistry.hh>
 #include "preconditioner.hh"
@@ -1090,6 +1098,144 @@ namespace Dune {
     real_field_type relax_;
   };
   DUNE_REGISTER_PRECONDITIONER("ildl", defaultPreconditionerCreator<Dune::SeqILDL>());
+
+
+
+  /**
+   * \brief A block-diagonal preconditioner
+   *
+   * This implements a simple block-diagonal preconditioner
+   * where a different preconditioner is used independently
+   * for each block of the unknowns.
+   *
+   * \tparam X Vector type for the update
+   * \tparam Y Vector type for the defect
+   *
+   * Notice that both vector types \ref X and \ref Y
+   * must have a compile time outer size (number of blocks)
+   * available via a constexpr static method `X::size()`.
+   */
+  template<class X, class Y=X>
+  class BlockDiagonalPreconditioner
+    : public Dune::Preconditioner<X,Y>
+  {
+    using indices = std::make_index_sequence<X::size()>;
+
+    template<class V, std::size_t i>
+    using Block = std::decay_t<decltype(std::declval<V>()[Dune::index_constant<i>()])>;
+
+    template<std::size_t i>
+    using BlockPreconditioner = Dune::Preconditioner<Block<X,i>, Block<Y,i>>;
+
+    template<class Indices>
+    struct BlockPreconditionerTupleForIndices;
+
+    template<std::size_t... i>
+    struct BlockPreconditionerTupleForIndices<std::index_sequence<i...>>
+    {
+      using type = Dune::TupleVector<std::shared_ptr<BlockPreconditioner<i>>...>;
+    };
+
+    using BlockPreconditionerTuple = typename BlockPreconditionerTupleForIndices<indices>::type;
+
+    template<class P>
+    static auto toSharedPtr(std::shared_ptr<P> p)
+    {
+      return p;
+    }
+
+    template<class P>
+    static auto toSharedPtr(P& p)
+    {
+      return Dune::stackobject_to_shared_ptr(p);
+    }
+
+    template<class P>
+    static auto toSharedPtr(const P& p)
+    {
+      return std::make_shared<P>(p);
+    }
+
+    template<class P>
+    static auto toSharedPtr(P&& p)
+    {
+      return std::make_shared<P>(std::move(p));
+    }
+
+  public:
+
+    /**
+     * \brief Construct from block preconditioners
+     *
+     * \tparam P Preconditioner types for the diagonal blocks
+     *
+     * The number of preconditioners must match the number
+     * of (outer) diagonal blocks of the correction
+     * and defect vectors. The i-th preconditioner passed
+     * here must be derived from `Preconditioner<Xi, Yi>`
+     * where `Xi` and `Yi` are the i-th block types of
+     * \ref X and \ref Y, respectively.
+     *
+     * Any preconditioner can either be passed as const l-value,
+     * mutable l-value, r-value, or `std::shared_ptr`. The latter
+     * are stored directly and mutable l-value references are converted
+     * to a `shared_ptr` using `Dune:stackobject_to_shared_ptr`.
+     * In contrast, preconditioners passed as const l-value or
+     * r-value reference are copied.
+     */
+    template<class... P>
+    requires (sizeof...(P) == X::size())
+    BlockDiagonalPreconditioner (P&&... p) :
+      preconditioners_(toSharedPtr(std::forward<P>(p))...)
+    {}
+
+    /**
+     * \copydoc Preconditioner::pre(X&,Y&)
+     */
+    void pre (X& x, Y& b) override
+    {
+      Dune::Hybrid::forEach(indices{}, [&](auto i) {
+        preconditioners_[i]->pre(x[i], b[i]);
+      });
+    }
+
+    /**
+     * \copydoc Preconditioner::apply(X&,Y&)
+     */
+    void apply (X& v, const Y& d) override
+    {
+      Dune::Hybrid::forEach(indices{}, [&](auto i) {
+        preconditioners_[i]->apply(v[i], d[i]);
+      });
+    }
+
+    /**
+     * \copydoc Preconditioner::post(X&)
+     */
+    void post (X& x) override
+    {
+      Dune::Hybrid::forEach(indices{}, [&](auto i) {
+        preconditioners_[i]->post(x[i]);
+      });
+    }
+
+    /**
+     * \copydoc Preconditioner::category()
+     */
+    Dune::SolverCategory::Category category() const override
+    {
+      auto c = preconditioners_[Dune::Indices::_0]->category();
+      Dune::Hybrid::forEach(indices{}, [&](auto i) {
+        if (preconditioners_[i]->category() != c)
+          DUNE_THROW(Dune::InvalidStateException,
+            "Inconsistent category of preconditioners in BlockDiagonalPreconditioner.");
+      });
+      return c;
+    }
+
+  private:
+    BlockPreconditionerTuple preconditioners_;
+  };
 
   /** @} end documentation */
 
