@@ -21,9 +21,13 @@ install(FILES
    dilu.hh
    foreach.hh
    gsetc.hh
+   ibcrsmatrix.hh
    ildl.hh
    ilu.hh
    ilusubdomainsolver.hh
+   imatrix.hh
+   indexedarrayview.hh
+   indexrange.hh
    io.hh
    istlexception.hh
    ldl.hh
@@ -31,6 +35,7 @@ install(FILES
    matrixindexset.hh
    matrixmarket.hh
    matrixmatrix.hh
+   matrixview.hh
    matrixredistribute.hh
    matrixutils.hh
    multitypeblockmatrix.hh
@@ -51,10 +56,12 @@ install(FILES
    solverregistry.hh
    solvers.hh
    solvertype.hh
+   sparseindexranges.hh
    spqr.hh
    superlu.hh
    superlufunctions.hh
    supermatrix.hh
    umfpack.hh
+   vectorview.hh
    vbvector.hh
    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/istl)
