@@ -48,52 +48,56 @@ namespace Dune {
         coliterator ij;
 
         // eliminate entries left of diagonal; store L factor
-        for (ij=(*i).begin(); ij.index()<i.index(); ++ij)
+        ij = (*i).begin();
+        if( ij != endij )
         {
-          // find A_jj which eliminates A_ij
-          coliterator jj = A[ij.index()].find(ij.index());
+          for (; ij.index()<i.index(); ++ij)
+          {
+            // find A_jj which eliminates A_ij
+            coliterator jj = A[ij.index()].find(ij.index());
 
-          // compute L_ij = A_ij * A_jj^-1
-          Impl::asMatrix(*ij).rightmultiply(Impl::asMatrix(*jj));
+            // compute L_ij = A_ij * A_jj^-1
+            Impl::asMatrix(*ij).rightmultiply(Impl::asMatrix(*jj));
 
-          // modify row
-          coliterator endjk=A[ij.index()].end();                 // end of row j
-          coliterator jk=jj; ++jk;
-          coliterator ik=ij; ++ik;
-          while (ik!=endij && jk!=endjk)
-            if (ik.index()==jk.index())
-            {
-              block B(*jk);
-              Impl::asMatrix(B).leftmultiply(Impl::asMatrix(*ij));
-              *ik -= B;
-              ++ik; ++jk;
-            }
-            else
-            {
-              if (ik.index()<jk.index())
-                ++ik;
+            // modify row
+            coliterator endjk=A[ij.index()].end();                 // end of row j
+            coliterator jk=jj; ++jk;
+            coliterator ik=ij; ++ik;
+            while (ik!=endij && jk!=endjk)
+              if (ik.index()==jk.index())
+              {
+                block B(*jk);
+                Impl::asMatrix(B).leftmultiply(Impl::asMatrix(*ij));
+                *ik -= B;
+                ++ik; ++jk;
+              }
               else
-                ++jk;
-            }
-        }
+              {
+                if (ik.index()<jk.index())
+                  ++ik;
+                else
+                  ++jk;
+              }
+          }
 
-        // invert pivot and store it in A
-        if (ij.index()!=i.index())
-          DUNE_THROW(ISTLError,"diagonal entry missing");
-        try {
-          Impl::asMatrix(*ij).invert();   // compute inverse of diagonal block
-        }
-        catch (Dune::FMatrixError & e) {
-          std::ostringstream sstream;
-          sstream << THROWSPEC(MatrixBlockError)
-            << THROWSPEC(MatrixBlockError)
-            << "ILU failed to invert matrix block A["
-            << i.index() << "][" << ij.index() << "]" << e.what();
-          MatrixBlockError ex;
-          ex.message(sstream.str());
-          ex.r = i.index();
-          ex.c = ij.index();
-          throw ex;
+          // invert pivot and store it in A
+          if (ij.index()!=i.index())
+            DUNE_THROW(ISTLError,"diagonal entry missing");
+          try {
+            Impl::asMatrix(*ij).invert();   // compute inverse of diagonal block
+          }
+          catch (Dune::FMatrixError & e) {
+            std::ostringstream sstream;
+            sstream << THROWSPEC(MatrixBlockError)
+              << THROWSPEC(MatrixBlockError)
+              << "ILU failed to invert matrix block A["
+              << i.index() << "][" << ij.index() << "]" << e.what();
+            MatrixBlockError ex;
+            ex.message(sstream.str());
+            ex.r = i.index();
+            ex.c = ij.index();
+            throw ex;
+          }
         }
       }
     }
@@ -120,8 +124,13 @@ namespace Dune {
         // proxy references.
         dblock rhsValue(d[i.index()]);
         auto&& rhs = Impl::asVector(rhsValue);
-        for (coliterator j=(*i).begin(); j.index()<i.index(); ++j)
-          Impl::asMatrix(*j).mmv(Impl::asVector(v[j.index()]),rhs);
+        const auto jend = (*i).end();
+        coliterator j=(*i).begin();
+        if( j != jend )
+        {
+          for (; j.index()<i.index(); ++j)
+            Impl::asMatrix(*j).mmv(Impl::asVector(v[j.index()]),rhs);
+        }
         Impl::asVector(v[i.index()]) = rhs;           // Lii = I
       }
 
@@ -137,11 +146,14 @@ namespace Dune {
         // proxy references.
         vblock rhsValue(v[i.index()]);
         auto&& rhs = Impl::asVector(rhsValue);
-        coliterator j;
-        for (j=(*i).beforeEnd(); j.index()>i.index(); --j)
-          Impl::asMatrix(*j).mmv(Impl::asVector(v[j.index()]),rhs);
-        auto&& vi = Impl::asVector(v[i.index()]);
-        Impl::asMatrix(*j).mv(rhs,vi);           // diagonal stores inverse!
+        coliterator j = (*i).beforeEnd();
+        if( j != (*i).beforeBegin() )
+        {
+          for (; j.index()>i.index(); --j)
+            Impl::asMatrix(*j).mmv(Impl::asVector(v[j.index()]),rhs);
+          auto&& vi = Impl::asVector(v[i.index()]);
+          Impl::asMatrix(*j).mv(rhs,vi);           // diagonal stores inverse!
+        }
       }
     }
 
@@ -196,24 +208,29 @@ namespace Dune {
           rowpattern[j.index()] = 0;
 
         // eliminate entries in row which are to the left of the diagonal
-        for (mapiterator ik=rowpattern.begin(); (*ik).first<i.index(); ++ik)
+        mapiterator ik=rowpattern.begin();
+        const auto ikend = rowpattern.end();
+        if( ik != ikend )
         {
-          if ((*ik).second<n)
+          for (; (*ik).first<i.index(); ++ik)
           {
-            coliterator endk = ILU[(*ik).first].end();                       // end of row k
-            coliterator kj = ILU[(*ik).first].find((*ik).first);                       // diagonal in k
-            for (++kj; kj!=endk; ++kj)                       // row k eliminates in row i
+            if ((*ik).second<n)
             {
-              // we misuse the storage to store an int. If the field_type is std::complex, we have to access the real/abs part
-              // starting from C++11, we can use std::abs to always return a real value, even if it is double/float
-              using std::abs;
-              int generation = (int) Simd::lane(0, abs( firstMatrixElement(*kj) ));
-              if (generation<n)
+              coliterator endk = ILU[(*ik).first].end();                       // end of row k
+              coliterator kj = ILU[(*ik).first].find((*ik).first);                       // diagonal in k
+              for (++kj; kj!=endk; ++kj)                       // row k eliminates in row i
               {
-                mapiterator ij = rowpattern.find(kj.index());
-                if (ij==rowpattern.end())
+                // we misuse the storage to store an int. If the field_type is std::complex, we have to access the real/abs part
+                // starting from C++11, we can use std::abs to always return a real value, even if it is double/float
+                using std::abs;
+                int generation = (int) Simd::lane(0, abs( firstMatrixElement(*kj) ));
+                if (generation<n)
                 {
-                  rowpattern[kj.index()] = generation+1;
+                  mapiterator ij = rowpattern.find(kj.index());
+                  if (ij==rowpattern.end())
+                  {
+                    rowpattern[kj.index()] = generation+1;
+                  }
                 }
               }
             }
@@ -336,11 +353,16 @@ namespace Dune {
       {
         const size_type iIndex  = i.index();
 
-        // store entries left of diagonal
-        for (auto j=(*i).begin(); j.index() < iIndex; ++j )
+        const auto jend = (*i).end();
+        auto j = (*i).begin();
+        if( j != jend )
         {
-          lower.push_back( (*j), j.index() );
-          ++colcount;
+          // store entries left of diagonal
+          for (; j.index() < iIndex; ++j )
+          {
+            lower.push_back( (*j), j.index() );
+            ++colcount;
+          }
         }
         lower.rows_[ iIndex+1 ] = colcount;
       }
