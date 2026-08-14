@@ -1,27 +1,62 @@
 // SPDX-FileCopyrightText: Copyright © DUNE Project contributors, see file LICENSE.md in module root
 // SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-DUNE-exception
 
+#include <array>
 #include <iostream>
+#include <iterator>
+#include <type_traits>
 
 #include <dune/common/bitsetvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/dynmatrix.hh>
+#include <dune/common/iteratorfacades.hh>
+#include <dune/common/reservedvector.hh>
 #include <dune/common/test/testsuite.hh>
 #include <dune/common/tuplevector.hh>
 
 #include <dune/istl/bcrsmatrix.hh>
+#include <dune/istl/concepts.hh>
 #include <dune/istl/multitypeblockmatrix.hh>
 #include <dune/istl/foreach.hh>
 #include <dune/istl/matrixindexset.hh>
 
+template <class PosIt, class EntryIt>
+struct SparseVectorIterator
+  : public Dune::IteratorFacadeForTraits<SparseVectorIterator<PosIt,EntryIt>,
+      Dune::DefaultIteratorTraits<std::forward_iterator_tag, typename std::iterator_traits<EntryIt>::reference>>
+{
+  SparseVectorIterator (PosIt pos, EntryIt entry) : pos_(pos), entry_(entry) {}
+  auto& operator*() const { return *entry_; }
+  SparseVectorIterator& operator++() { ++pos_; ++entry_; return *this; }
+  SparseVectorIterator operator++(int) { SparseVectorIterator tmp(*this); ++(*this); return tmp; }
+  bool operator==(const SparseVectorIterator& other) const { return pos_ == other.pos_; };
+  std::size_t index() const { return *pos_; }
 
+  PosIt pos_;
+  EntryIt entry_;
+};
+
+template <class T, std::size_t S, std::size_t C = S>
+struct SparseVector
+{
+  auto begin() { return SparseVectorIterator{positions_.begin(), entries_.begin()}; }
+  auto end() { return SparseVectorIterator{positions_.end(), entries_.end()}; }
+  auto begin() const { return SparseVectorIterator{positions_.begin(), entries_.begin()}; }
+  auto end() const { return SparseVectorIterator{positions_.end(), entries_.end()}; }
+
+  static constexpr std::size_t size() { return S; }
+  static constexpr std::size_t capacity() { return C; }
+
+  Dune::ReservedVector<std::size_t,C> positions_ = {};
+  Dune::ReservedVector<T,C> entries_ = {};
+};
 
 
 using namespace Dune;
 
 TestSuite testFlatVectorForEach()
 {
-  TestSuite t;
+  TestSuite t("testFlatVectorForEach");
 
   // mix up some types
 
@@ -59,7 +94,7 @@ TestSuite testFlatVectorForEach()
 
 TestSuite testFlatVectorForEachBitSetVector()
 {
-  TestSuite t;
+  TestSuite t("testFlatVectorForEachBitSetVector");
 
   int entries = 0;
 
@@ -79,9 +114,56 @@ TestSuite testFlatVectorForEachBitSetVector()
 }
 
 
+TestSuite testFlatVectorForEachSparse()
+{
+  TestSuite t("testFlatVectorForEachSparse");
+
+  SparseVector<double,10,2> uv1{{2,5}, {7.0,3.0}};
+  static_assert(Dune::ISTL::Concept::IndexedRange<SparseVector<double,3,2>>);
+
+  int visitedEntries = 0;
+  auto countVisitedEntres = [&](auto&& entry, auto&& index){
+    visitedEntries++;
+  };
+
+  auto s1 = flatVectorForEach(uv1,countVisitedEntres);
+
+  t.check( visitedEntries == 2 );
+  t.check( s1 == 10 );
+
+  SparseVector<FieldVector<double,2>,10,1> uv2{{2}, {FieldVector<double,2>{1.0,2.0}}};
+
+  visitedEntries = 0;
+  auto s2 = flatVectorForEach(uv2,countVisitedEntres);
+
+  t.check( visitedEntries == 2 );
+  t.check( s2 == 20 );
+
+  // an empty sparse vector
+  SparseVector<double,10,0> uv3{};
+
+  visitedEntries = 0;
+  auto s3 = flatVectorForEach(uv3,countVisitedEntres);
+
+  t.check( visitedEntries == 0 );
+  t.check( s3 == 10 );
+
+  // a nested sparse vector
+  SparseVector<SparseVector<double,3,1>,10,1> uv4{{4}, {SparseVector<double,3,1>{{1}, {42.0}}}};
+
+  visitedEntries = 0;
+  auto s4 = flatVectorForEach(uv4,countVisitedEntres);
+
+  t.check( visitedEntries == 1 );
+  t.check( s4 == 30 );
+
+  return t;
+}
+
+
 TestSuite testFlatMatrixForEachStatic()
 {
-  TestSuite t;
+  TestSuite t("testFlatMatrixForEachStatic");
 
   [[maybe_unused]] FieldMatrix<double,3,3> F33;
   [[maybe_unused]] FieldMatrix<double,3,1> F31;
@@ -138,7 +220,7 @@ TestSuite testFlatMatrixForEachStatic()
 
 TestSuite testFlatMatrixForEachDynamic()
 {
-  TestSuite t;
+  TestSuite t("testFlatMatrixForEachDynamic");
 
   DynamicMatrix<double> F33(3,3);
 
@@ -174,13 +256,13 @@ TestSuite testFlatMatrixForEachDynamic()
 }
 
 
-
 int main(int argc, char** argv)
 {
   TestSuite t;
 
   t.subTest(testFlatVectorForEach());
   t.subTest(testFlatVectorForEachBitSetVector());
+  t.subTest(testFlatVectorForEachSparse());
   t.subTest(testFlatMatrixForEachStatic());
   t.subTest(testFlatMatrixForEachDynamic());
 
