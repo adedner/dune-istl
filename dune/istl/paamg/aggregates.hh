@@ -2152,7 +2152,7 @@ namespace Dune
                                             SLList<Vertex>& neighbours) const
     {
       typedef typename MatrixGraph::ConstEdgeIterator Iterator;
-      Iterator end=graph_->beginEdges(vertex);
+      Iterator end=graph_->endEdges(vertex);
       neighbours.clear();
 
       for(Iterator edge=graph_->beginEdges(vertex); edge!=end; ++edge)
