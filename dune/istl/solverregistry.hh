@@ -36,24 +36,26 @@ namespace Dune{
   */
   class UnsupportedType : public NotImplemented {};
 
-  /* The sequential relaxation preconditioners registered via
-     defaultPreconditionerBlockLevelCreator (ssor, sor, gs, jac, dilu, ilu)
-     and defaultPreconditionerCreator (ildl) operate by iterating over the
-     rows and columns of the matrix. Registered creators are instantiated
-     for every operator type passed to initSolverFactories(), whether or not
-     the preconditioner is ever selected, so they must not hard-error for
-     matrix types that do not provide this interface (e.g. GPU-resident
-     matrices). This concept detects the required interface; creators use it
-     to throw UnsupportedType at runtime instead.
-  */
-  template<class M>
-  concept RowIterableMatrix = requires(const M& m)
-  {
-    typename M::ConstRowIterator;
-    typename M::ConstColIterator;
-    { m.begin().index() };            // row iterators provide their row index
-    { (*m.begin()).begin().index() }; // column iterators provide their column index
-  };
+  namespace Impl {
+    /* The sequential relaxation preconditioners registered via
+       defaultPreconditionerBlockLevelCreator (ssor, sor, gs, jac, dilu, ilu)
+       and defaultPreconditionerCreator (ildl) operate by iterating over the
+       rows and columns of the matrix. Registered creators are instantiated
+       for every operator type passed to initSolverFactories(), whether or not
+       the preconditioner is ever selected, so they must not hard-error for
+       matrix types that do not provide this interface (e.g. GPU-resident
+       matrices). This concept detects the required interface; creators use it
+       to throw UnsupportedType at runtime instead.
+     */
+    template<class M>
+    concept RowIterableMatrix = requires(const M& m)
+      {
+        typename M::ConstRowIterator;
+        typename M::ConstColIterator;
+        { m.begin().index() };            // row iterators provide their row index
+        { (*m.begin()).begin().index() }; // column iterators provide their column index
+      };
+  } // namespace Impl
 
   template<template<class,class,class,int>class Preconditioner, int blockLevel=1>
   auto defaultPreconditionerBlockLevelCreator(){
@@ -66,7 +68,7 @@ namespace Dune{
       std::shared_ptr<Dune::Preconditioner<Domain, Range>> preconditioner;
       if constexpr (!OpInfo::isAssembled){
         DUNE_THROW(NoAssembledOperator, "Could not obtain matrix from operator. Please pass in an AssembledLinearOperator.");
-      } else if constexpr (!RowIterableMatrix<Matrix>) {
+      } else if constexpr (!Impl::RowIterableMatrix<Matrix>) {
         DUNE_THROW(UnsupportedType,
                    "This preconditioner iterates over the matrix rows and columns, "
                    "which is not supported by " << className<Matrix>() << ".");
@@ -91,7 +93,7 @@ namespace Dune{
       std::shared_ptr<Dune::Preconditioner<Domain, Range>> preconditioner;
       if constexpr (!OpInfo::isAssembled){
         DUNE_THROW(NoAssembledOperator, "Could not obtain matrix from operator. Please pass in an AssembledLinearOperator.");
-      } else if constexpr (!RowIterableMatrix<Matrix>) {
+      } else if constexpr (!Impl::RowIterableMatrix<Matrix>) {
         DUNE_THROW(UnsupportedType,
                    "This preconditioner iterates over the matrix rows and columns, "
                    "which is not supported by " << className<Matrix>() << ".");
