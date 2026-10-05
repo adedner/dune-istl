@@ -136,17 +136,20 @@ namespace Dune
                                                          const Vector& fine,
                                                          [[maybe_unused]] const SequentialInformation& comm)
     {
-      // Set coarse vector to zero
-      coarse=0;
-
       typedef typename Vector::const_iterator Iterator;
       Iterator end = fine.end();
       Iterator begin=fine.begin();
 
+      std::vector<bool> visited(coarse.size(), false);
       for(Iterator block=begin; block != end; ++block) {
         const Vertex& vertex = aggregates[block-begin];
-        if(vertex != AggregatesMap<Vertex>::ISOLATED)
-          coarse[vertex] += *block;
+        if(vertex == AggregatesMap<Vertex>::ISOLATED)
+          continue;
+        // On first visit copy block from fine and set to zero
+        if (not visited[vertex])
+          (coarse[vertex] = *block) = 0.;
+        coarse[vertex] += *block;
+        visited[vertex] = true;
       }
     }
 
