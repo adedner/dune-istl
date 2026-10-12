@@ -9,6 +9,7 @@ add_subdirectory(test)
 
 #install headers
 install(FILES
+   access.hh
    allocator.hh
    basearray.hh
    bccsmatrix.hh
