@@ -108,6 +108,36 @@ void testAllPreconditioners(const Matrix& matrix, const Vector& b)
   x = 0;
   SeqILDL<Matrix,Vector,Vector> seqILDL(matrix, 1.2);
   testPreconditioner(matrix, b, x, seqILDL);
+
+  using BlockMatrix = Dune::MultiTypeBlockMatrix<
+      Dune::MultiTypeBlockVector<Matrix, Matrix>,
+      Dune::MultiTypeBlockVector<Matrix, Matrix>
+    >;
+  using BlockVector = Dune::MultiTypeBlockVector<Vector, Vector>;
+  using namespace Dune::Indices;
+
+  auto xx = BlockVector();
+  xx[_0] = x;
+  xx[_1] = x;
+  xx = 0;
+
+  auto bb = BlockVector();
+  bb[_0] = b;
+  bb[_1] = b;
+
+  auto MM = BlockMatrix();
+  MM[_0][_0] = matrix;
+  MM[_0][_1] = matrix;
+  MM[_1][_0] = matrix;
+  MM[_1][_1] = matrix;
+  MM[_0][_1] = 0;
+  MM[_1][_0] = 0;
+
+  auto blockDiagonalPrecond = Dune::BlockDiagonalPreconditioner<BlockVector>(
+      SeqILDL<Matrix, Vector, Vector>(MM[_0][_0], 1),
+      SeqILDL<Matrix, Vector, Vector>(MM[_1][_1], 1)
+    );
+  testPreconditioner(MM, bb, xx, blockDiagonalPrecond);
 }
 
 int main() try
